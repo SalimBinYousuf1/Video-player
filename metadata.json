@@ -1,0 +1,6 @@
+{
+  "name": "Salim",
+  "description": "Local Video Player for Android, Built to Apple's Design & Engineering Standard",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
