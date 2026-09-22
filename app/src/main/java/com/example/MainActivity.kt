@@ -12,6 +12,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -86,8 +87,15 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            val systemInDark = isSystemInDarkTheme()
+            val isDark = when (settings.themeMode) {
+                "light" -> false
+                "dark" -> true
+                else -> systemInDark
+            }
+
             SalimTheme(
-                darkTheme = settings.themeMode == "dark",
+                darkTheme = isDark,
                 isOledBlack = settings.isTrueBlackOled
             ) {
                 AnimatedContent(

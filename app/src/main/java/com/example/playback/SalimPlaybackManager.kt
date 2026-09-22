@@ -14,6 +14,7 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import com.example.data.model.BookmarkEntity
 import com.example.data.model.VideoItemEntity
 import com.example.data.repository.VideoRepository
 import kotlinx.coroutines.CoroutineScope
@@ -34,8 +35,18 @@ data class TrackInfo(
     val isSelected: Boolean
 )
 
-enum class AspectRatioMode {
-    FIT, FILL, STRETCH
+enum class AspectRatioMode(val label: String) {
+    FIT("Fit"),
+    FILL("Fill"),
+    STRETCH("Stretch"),
+    ZOOM_100("100%"),
+    ZOOM_200("200%")
+}
+
+enum class RepeatMode(val label: String) {
+    OFF("Off"),
+    ONE("Repeat 1"),
+    ALL("Repeat All")
 }
 
 data class PlaybackUiState(
@@ -47,6 +58,7 @@ data class PlaybackUiState(
     val durationMs: Long = 0L,
     val bufferedPositionMs: Long = 0L,
     val playbackSpeed: Float = 1.0f,
+    val isFastForwardingPreview: Boolean = false,
     val aspectRatioMode: AspectRatioMode = AspectRatioMode.FIT,
     val subtitleTracks: List<TrackInfo> = emptyList(),
     val selectedSubtitleTrackIndex: Int = -1,
@@ -59,17 +71,27 @@ data class PlaybackUiState(
     val panOffsetX: Float = 0f,
     val panOffsetY: Float = 0f,
     val volumeLevel: Float = 1.0f,
+    val audioBoostMultiplier: Float = 1.0f, // up to 2.0x (200% volume)
     val brightnessLevel: Float = 0.5f,
     val showVolumeIndicator: Boolean = false,
     val showBrightnessIndicator: Boolean = false,
     val isBuffering: Boolean = false,
-    val isLocked: Boolean = false
+    val isLocked: Boolean = false,
+    val isAudioOnlyMode: Boolean = false,
+    val repeatMode: RepeatMode = RepeatMode.OFF,
+    val isShuffle: Boolean = false,
+    val loopPointA: Long? = null,
+    val loopPointB: Long? = null,
+    val isAbLoopActive: Boolean = false,
+    val orientationLock: String = "sensor", // "sensor", "landscape", "portrait"
+    val doubleTapSeekSeconds: Int = 20,
+    val bookmarks: List<BookmarkEntity> = emptyList()
 )
 
 @OptIn(UnstableApi::class)
 class SalimPlaybackManager(
     private val context: Context,
-    private val videoRepository: VideoRepository
+    val videoRepository: VideoRepository
 ) {
     private val scope = CoroutineScope(Dispatchers.Main + Job())
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -86,6 +108,7 @@ class SalimPlaybackManager(
     private var sleepTimerJob: Job? = null
     private var autoHideControlsJob: Job? = null
     private var indicatorHideJob: Job? = null
+    private var speedBeforeHold: Float = 1.0f
 
     init {
         // Initialize current volume
@@ -124,7 +147,7 @@ class SalimPlaybackManager(
                     Player.STATE_ENDED -> {
                         _uiState.value = _uiState.value.copy(isBuffering = false, isPlaying = false)
                         markCurrentVideoCompleted()
-                        playNextIfAvailable()
+                        handlePlaybackEnded()
                     }
                     else -> {
                         _uiState.value = _uiState.value.copy(isBuffering = false)
@@ -148,6 +171,9 @@ class SalimPlaybackManager(
             zoomScale = 1.0f,
             panOffsetX = 0f,
             panOffsetY = 0f,
+            loopPointA = null,
+            loopPointB = null,
+            isAbLoopActive = false,
             isControlsVisible = true
         )
 
@@ -174,6 +200,15 @@ class SalimPlaybackManager(
 
         player.play()
         scheduleAutoHideControls()
+        loadBookmarks(video.id)
+    }
+
+    private fun loadBookmarks(videoId: Long) {
+        scope.launch {
+            videoRepository.getBookmarksForVideo(videoId).collect { marks ->
+                _uiState.value = _uiState.value.copy(bookmarks = marks)
+            }
+        }
     }
 
     private fun findSidecarSubtitles(videoPath: String): List<MediaItem.SubtitleConfiguration> {
@@ -249,6 +284,10 @@ class SalimPlaybackManager(
         }
     }
 
+    fun setDoubleTapSeekSeconds(seconds: Int) {
+        _uiState.value = _uiState.value.copy(doubleTapSeekSeconds = seconds)
+    }
+
     fun seekBy(seconds: Int) {
         val current = player.currentPosition
         val duration = player.duration.coerceAtLeast(0L)
@@ -264,9 +303,30 @@ class SalimPlaybackManager(
         _uiState.value = _uiState.value.copy(currentPositionMs = positionMs)
     }
 
+    private fun handlePlaybackEnded() {
+        when (_uiState.value.repeatMode) {
+            RepeatMode.ONE -> {
+                player.seekTo(0)
+                player.play()
+            }
+            RepeatMode.ALL -> {
+                val nextIndex = (_uiState.value.currentIndex + 1) % _uiState.value.playlist.size
+                playVideo(_uiState.value.playlist[nextIndex], _uiState.value.playlist)
+            }
+            RepeatMode.OFF -> {
+                playNextIfAvailable()
+            }
+        }
+    }
+
     fun playNextIfAvailable() {
         val playlist = _uiState.value.playlist
-        val nextIndex = _uiState.value.currentIndex + 1
+        if (playlist.isEmpty()) return
+        val nextIndex = if (_uiState.value.isShuffle) {
+            playlist.indices.random()
+        } else {
+            _uiState.value.currentIndex + 1
+        }
         if (nextIndex in playlist.indices) {
             playVideo(playlist[nextIndex], playlist)
         }
@@ -274,6 +334,7 @@ class SalimPlaybackManager(
 
     fun playPreviousIfAvailable() {
         val playlist = _uiState.value.playlist
+        if (playlist.isEmpty()) return
         val prevIndex = _uiState.value.currentIndex - 1
         if (prevIndex in playlist.indices) {
             playVideo(playlist[prevIndex], playlist)
@@ -289,22 +350,72 @@ class SalimPlaybackManager(
         }
     }
 
-    fun setAspectRatioMode(mode: AspectRatioMode) {
-        _uiState.value = _uiState.value.copy(aspectRatioMode = mode)
+    // YouTube 2.0x hold preview
+    fun startTemporaryFastForward() {
+        if (!_uiState.value.isFastForwardingPreview) {
+            speedBeforeHold = _uiState.value.playbackSpeed
+            player.setPlaybackParameters(PlaybackParameters(2.0f))
+            _uiState.value = _uiState.value.copy(
+                isFastForwardingPreview = true,
+                playbackSpeed = 2.0f
+            )
+        }
     }
 
-    fun toggleAspectRatioMode() {
+    fun stopTemporaryFastForward() {
+        if (_uiState.value.isFastForwardingPreview) {
+            player.setPlaybackParameters(PlaybackParameters(speedBeforeHold))
+            _uiState.value = _uiState.value.copy(
+                isFastForwardingPreview = false,
+                playbackSpeed = speedBeforeHold
+            )
+        }
+    }
+
+    // A-B Loop functionality (VLC powerhouse feature)
+    fun setLoopPointA() {
+        val currentPos = player.currentPosition
+        _uiState.value = _uiState.value.copy(loopPointA = currentPos, isAbLoopActive = false)
+    }
+
+    fun setLoopPointB() {
+        val currentPos = player.currentPosition
+        val pointA = _uiState.value.loopPointA ?: 0L
+        if (currentPos > pointA) {
+            _uiState.value = _uiState.value.copy(loopPointB = currentPos, isAbLoopActive = true)
+        }
+    }
+
+    fun clearAbLoop() {
+        _uiState.value = _uiState.value.copy(loopPointA = null, loopPointB = null, isAbLoopActive = false)
+    }
+
+    // Aspect ratio & Zoom modes
+    fun setAspectRatioMode(mode: AspectRatioMode) {
+        _uiState.value = _uiState.value.copy(
+            aspectRatioMode = mode,
+            zoomScale = when (mode) {
+                AspectRatioMode.ZOOM_100 -> 1.0f
+                AspectRatioMode.ZOOM_200 -> 2.0f
+                else -> 1.0f
+            }
+        )
+    }
+
+    fun cycleAspectRatioMode() {
         val next = when (_uiState.value.aspectRatioMode) {
             AspectRatioMode.FIT -> AspectRatioMode.FILL
             AspectRatioMode.FILL -> AspectRatioMode.STRETCH
-            AspectRatioMode.STRETCH -> AspectRatioMode.FIT
+            AspectRatioMode.STRETCH -> AspectRatioMode.ZOOM_100
+            AspectRatioMode.ZOOM_100 -> AspectRatioMode.ZOOM_200
+            AspectRatioMode.ZOOM_200 -> AspectRatioMode.FIT
         }
         setAspectRatioMode(next)
     }
 
     fun setZoomAndPan(scale: Float, offsetX: Float, offsetY: Float) {
         _uiState.value = _uiState.value.copy(
-            zoomScale = scale.coerceIn(1.0f, 4.0f),
+            zoomScale = scale.coerceIn(1.0f, 5.0f),
             panOffsetX = offsetX,
             panOffsetY = offsetY
         )
@@ -314,8 +425,71 @@ class SalimPlaybackManager(
         _uiState.value = _uiState.value.copy(
             zoomScale = 1.0f,
             panOffsetX = 0f,
-            panOffsetY = 0f
+            panOffsetY = 0f,
+            aspectRatioMode = AspectRatioMode.FIT
         )
+    }
+
+    // Audio Boost (Volume up to 200%)
+    fun setAudioBoostMultiplier(multiplier: Float) {
+        val clamped = multiplier.coerceIn(1.0f, 2.0f)
+        _uiState.value = _uiState.value.copy(audioBoostMultiplier = clamped)
+        player.volume = clamped
+    }
+
+    // Audio-Only mode toggle
+    fun toggleAudioOnlyMode() {
+        _uiState.value = _uiState.value.copy(isAudioOnlyMode = !_uiState.value.isAudioOnlyMode)
+    }
+
+    // Repeat & Shuffle
+    fun toggleRepeatMode() {
+        val next = when (_uiState.value.repeatMode) {
+            RepeatMode.OFF -> RepeatMode.ALL
+            RepeatMode.ALL -> RepeatMode.ONE
+            RepeatMode.ONE -> RepeatMode.OFF
+        }
+        _uiState.value = _uiState.value.copy(repeatMode = next)
+    }
+
+    fun toggleShuffle() {
+        _uiState.value = _uiState.value.copy(isShuffle = !_uiState.value.isShuffle)
+    }
+
+    // Orientation Lock
+    fun setOrientationLock(lock: String) {
+        _uiState.value = _uiState.value.copy(orientationLock = lock)
+    }
+
+    fun toggleOrientationLock() {
+        val next = when (_uiState.value.orientationLock) {
+            "sensor" -> "landscape"
+            "landscape" -> "portrait"
+            else -> "sensor"
+        }
+        setOrientationLock(next)
+    }
+
+    // Bookmarks
+    fun addBookmarkAtCurrent(note: String = "") {
+        val video = _uiState.value.currentVideo ?: return
+        val pos = player.currentPosition
+        scope.launch {
+            videoRepository.addBookmark(video.id, pos, note)
+        }
+    }
+
+    fun deleteBookmark(bookmarkId: Long) {
+        scope.launch {
+            videoRepository.deleteBookmark(bookmarkId)
+        }
+    }
+
+    // Capture Frame
+    suspend fun captureCurrentFrame(): String? {
+        val video = _uiState.value.currentVideo ?: return null
+        val pos = player.currentPosition
+        return videoRepository.captureVideoFrame(video, pos)
     }
 
     fun toggleControls() {
@@ -340,7 +514,7 @@ class SalimPlaybackManager(
         autoHideControlsJob?.cancel()
         if (_uiState.value.isPlaying && !_uiState.value.isLocked) {
             autoHideControlsJob = scope.launch {
-                delay(3500)
+                delay(3800)
                 _uiState.value = _uiState.value.copy(isControlsVisible = false)
             }
         }
@@ -464,7 +638,6 @@ class SalimPlaybackManager(
     fun selectSubtitleTrack(trackIndex: Int) {
         val parameters = trackSelector.buildUponParameters()
         if (trackIndex < 0) {
-            // Disable subtitles
             parameters.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
         } else {
             parameters.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
@@ -487,6 +660,26 @@ class SalimPlaybackManager(
         _uiState.value = _uiState.value.copy(selectedSubtitleTrackIndex = trackIndex)
     }
 
+    fun selectAudioTrack(trackIndex: Int) {
+        val parameters = trackSelector.buildUponParameters()
+        val currentTracks = player.currentTracks
+        var counter = 0
+        for (group in currentTracks.groups) {
+            if (group.type == C.TRACK_TYPE_AUDIO) {
+                for (i in 0 until group.length) {
+                    if (counter == trackIndex) {
+                        parameters.setOverrideForType(
+                            TrackSelectionOverride(group.mediaTrackGroup, i)
+                        )
+                    }
+                    counter++
+                }
+            }
+        }
+        trackSelector.setParameters(parameters)
+        _uiState.value = _uiState.value.copy(selectedAudioTrackIndex = trackIndex)
+    }
+
     fun setSubtitleDelayMs(delayMs: Long) {
         _uiState.value = _uiState.value.copy(subtitleDelayMs = delayMs)
     }
@@ -495,10 +688,20 @@ class SalimPlaybackManager(
         positionTrackerJob?.cancel()
         positionTrackerJob = scope.launch {
             while (isActive) {
+                val currentPos = player.currentPosition
                 _uiState.value = _uiState.value.copy(
-                    currentPositionMs = player.currentPosition,
+                    currentPositionMs = currentPos,
                     bufferedPositionMs = player.bufferedPosition
                 )
+
+                // A-B loop boundary enforcement
+                val state = _uiState.value
+                if (state.isAbLoopActive && state.loopPointA != null && state.loopPointB != null) {
+                    if (currentPos >= state.loopPointB) {
+                        player.seekTo(state.loopPointA)
+                    }
+                }
+
                 // Periodically save watch progress
                 saveCurrentProgress()
                 delay(1000)

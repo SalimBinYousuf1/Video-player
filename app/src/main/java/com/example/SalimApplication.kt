@@ -43,6 +43,7 @@ class SalimApplication : Application() {
             videoDao = database.videoDao(),
             playlistDao = database.playlistDao(),
             watchHistoryDao = database.watchHistoryDao(),
+            bookmarkDao = database.bookmarkDao(),
             scanner = mediaScanner,
             settingsRepository = settingsRepository
         )

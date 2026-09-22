@@ -76,3 +76,25 @@ data class WatchHistoryEntity(
     val positionMs: Long,
     val durationMs: Long
 )
+
+@Entity(tableName = "bookmarks")
+data class BookmarkEntity(
+    @PrimaryKey(autoGenerate = true) val bookmarkId: Long = 0L,
+    val videoId: Long,
+    val positionMs: Long,
+    val note: String = "",
+    val createdAt: Long = System.currentTimeMillis()
+) {
+    fun formattedPosition(): String {
+        val totalSeconds = positionMs / 1000
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        val seconds = totalSeconds % 60
+        return if (hours > 0) {
+            String.format("%d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            String.format("%d:%02d", minutes, seconds)
+        }
+    }
+}
+

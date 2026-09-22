@@ -11,7 +11,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,12 +22,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -55,12 +50,13 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.data.model.VideoItemEntity
-import com.example.ui.theme.DarkGlassBase
 import com.example.ui.theme.DarkSurfaceElevated
+import com.example.ui.theme.LightSurfaceElevated
 import com.example.ui.theme.TextPrimaryDark
+import com.example.ui.theme.TextPrimaryLight
 import com.example.ui.theme.TextSecondaryDark
+import com.example.ui.theme.TextSecondaryLight
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -68,6 +64,7 @@ fun VideoGridItem(
     video: VideoItemEntity,
     onClick: () -> Unit,
     onLongPressThreshold: () -> Unit,
+    isLightMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -82,6 +79,10 @@ fun VideoGridItem(
         ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
     }
 
+    val primaryTextColor = if (isLightMode) TextPrimaryLight else TextPrimaryDark
+    val secondaryTextColor = if (isLightMode) TextSecondaryLight else TextSecondaryDark
+    val cardBackground = if (isLightMode) LightSurfaceElevated else DarkSurfaceElevated
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -89,17 +90,14 @@ fun VideoGridItem(
             .pointerInput(video.id) {
                 detectTapGestures(
                     onPress = {
-                        // Instant contact feedback with spring compression
                         val pressScope = this
                         scope.launch {
                             scaleAnim.animateTo(0.96f, spring(stiffness = Spring.StiffnessMediumLow))
                         }
                         holdJob?.cancel()
                         holdJob = scope.launch {
-                            // Deliberate 2-second hold progression
                             holdProgress.snapTo(0f)
                             holdProgress.animateTo(1f, tween(durationMillis = 2000, easing = LinearEasing))
-                            // Trigger threshold haptic tick
                             view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                             onLongPressThreshold()
                             scaleAnim.animateTo(1f, spring(dampingRatio = Spring.DampingRatioLowBouncy))
@@ -125,7 +123,7 @@ fun VideoGridItem(
                 .fillMaxWidth()
                 .aspectRatio(16f / 10f)
                 .clip(RoundedCornerShape(18.dp))
-                .background(DarkSurfaceElevated)
+                .background(cardBackground)
         ) {
             AsyncImage(
                 model = ImageRequest.Builder(context)
@@ -145,13 +143,13 @@ fun VideoGridItem(
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color.Black.copy(alpha = 0.6f)
+                                Color.Black.copy(alpha = 0.55f)
                             )
                         )
                     )
             )
 
-            // Duration Pill Badge (Liquid Glass)
+            // Duration Pill Badge
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -176,8 +174,8 @@ fun VideoGridItem(
                         .fillMaxWidth()
                         .height(3.dp)
                         .align(Alignment.BottomCenter),
-                    color = Color.White,
-                    trackColor = Color.White.copy(alpha = 0.25f),
+                    color = Color(0xFF007AFF),
+                    trackColor = Color.White.copy(alpha = 0.35f),
                     strokeCap = StrokeCap.Round
                 )
             }
@@ -205,7 +203,7 @@ fun VideoGridItem(
         // Video title
         Text(
             text = video.title,
-            color = TextPrimaryDark,
+            color = primaryTextColor,
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
@@ -215,7 +213,7 @@ fun VideoGridItem(
         // Subtext: resolution and size
         Text(
             text = "${video.resolution} • ${video.formattedSize()}",
-            color = TextSecondaryDark,
+            color = secondaryTextColor,
             fontSize = 12.sp,
             maxLines = 1
         )
@@ -227,6 +225,7 @@ fun VideoListItem(
     video: VideoItemEntity,
     onClick: () -> Unit,
     onLongPressThreshold: () -> Unit,
+    isLightMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -240,6 +239,10 @@ fun VideoListItem(
     val videoUri = remember(video.id) {
         ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
     }
+
+    val primaryTextColor = if (isLightMode) TextPrimaryLight else TextPrimaryDark
+    val secondaryTextColor = if (isLightMode) TextSecondaryLight else TextSecondaryDark
+    val cardBackground = if (isLightMode) LightSurfaceElevated else DarkSurfaceElevated
 
     Row(
         modifier = modifier
@@ -283,7 +286,7 @@ fun VideoListItem(
                 .width(108.dp)
                 .height(68.dp)
                 .clip(RoundedCornerShape(14.dp))
-                .background(DarkSurfaceElevated)
+                .background(cardBackground)
         ) {
             AsyncImage(
                 model = ImageRequest.Builder(context)
@@ -319,8 +322,8 @@ fun VideoListItem(
                         .fillMaxWidth()
                         .height(2.5.dp)
                         .align(Alignment.BottomCenter),
-                    color = Color.White,
-                    trackColor = Color.White.copy(alpha = 0.25f)
+                    color = Color(0xFF007AFF),
+                    trackColor = Color.White.copy(alpha = 0.35f)
                 )
             }
 
@@ -347,7 +350,7 @@ fun VideoListItem(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = video.title,
-                color = TextPrimaryDark,
+                color = primaryTextColor,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
@@ -356,7 +359,7 @@ fun VideoListItem(
             Spacer(modifier = Modifier.height(3.dp))
             Text(
                 text = "${video.folderName} • ${video.formattedSize()} • ${video.resolution}",
-                color = TextSecondaryDark,
+                color = secondaryTextColor,
                 fontSize = 12.sp,
                 maxLines = 1
             )
@@ -364,7 +367,7 @@ fun VideoListItem(
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "Resume from ${video.formattedDuration()}",
-                    color = Color(0xFF64D2FF),
+                    color = Color(0xFF007AFF),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium
                 )

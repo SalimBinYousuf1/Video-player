@@ -1,12 +1,20 @@
 package com.example.data.repository
 
+import android.content.ContentValues
 import android.content.Context
+import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import com.example.data.db.BookmarkDao
 import com.example.data.db.PlaylistDao
 import com.example.data.db.VideoDao
 import com.example.data.db.WatchHistoryDao
 import com.example.data.mediastore.MediaStoreVideoScanner
 import com.example.data.mediastore.VideoDetailedMetadata
+import com.example.data.model.BookmarkEntity
 import com.example.data.model.PlaylistEntity
 import com.example.data.model.PlaylistItemCrossRef
 import com.example.data.model.VideoItemEntity
@@ -21,6 +29,8 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.FileOutputStream
+import java.io.OutputStream
 
 sealed interface ScanState {
     object Idle : ScanState
@@ -33,9 +43,11 @@ class VideoRepository(
     private val videoDao: VideoDao,
     private val playlistDao: PlaylistDao,
     private val watchHistoryDao: WatchHistoryDao,
+    private val bookmarkDao: BookmarkDao,
     private val scanner: MediaStoreVideoScanner,
     private val settingsRepository: UserSettingsRepository
 ) {
+
     private val _scanState = MutableStateFlow<ScanState>(ScanState.Idle)
     val scanState: StateFlow<ScanState> = _scanState.asStateFlow()
 
@@ -161,8 +173,64 @@ class VideoRepository(
         watchHistoryDao.clearHistory()
     }
 
+    // Bookmarks
+    fun getBookmarksForVideo(videoId: Long): Flow<List<BookmarkEntity>> =
+        bookmarkDao.getBookmarksForVideo(videoId)
+
+    suspend fun addBookmark(videoId: Long, positionMs: Long, note: String = ""): Long = withContext(Dispatchers.IO) {
+        bookmarkDao.insertBookmark(BookmarkEntity(videoId = videoId, positionMs = positionMs, note = note.trim()))
+    }
+
+    suspend fun deleteBookmark(bookmarkId: Long) = withContext(Dispatchers.IO) {
+        bookmarkDao.deleteBookmark(bookmarkId)
+    }
+
+    // High-Res Frame Capture
+    suspend fun captureVideoFrame(video: VideoItemEntity, positionMs: Long): String? = withContext(Dispatchers.IO) {
+        try {
+            val retriever = MediaMetadataRetriever()
+            if (video.path.isNotEmpty() && File(video.path).exists()) {
+                retriever.setDataSource(video.path)
+            } else {
+                retriever.setDataSource(context, Uri.parse(video.uri))
+            }
+
+            val timeMicros = positionMs * 1000L
+            val frameBitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                retriever.getScaledFrameAtTime(timeMicros, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 1920, 1080)
+                    ?: retriever.getFrameAtTime(timeMicros, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            } else {
+                retriever.getFrameAtTime(timeMicros, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            }
+            retriever.release()
+
+            if (frameBitmap != null) {
+                val fileName = "Salim_${System.currentTimeMillis()}.jpg"
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                    put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Salim")
+                    }
+                }
+
+                val imageUri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+                if (imageUri != null) {
+                    context.contentResolver.openOutputStream(imageUri)?.use { out ->
+                        frameBitmap.compress(Bitmap.CompressFormat.JPEG, 95, out)
+                    }
+                    return@withContext fileName
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        null
+    }
+
     suspend fun getDetailedMetadata(video: VideoItemEntity): VideoDetailedMetadata =
         scanner.getDetailedMetadata(video)
+
 
     // Local JSON Backup & Restore
     suspend fun exportBackupJson(): String = withContext(Dispatchers.IO) {

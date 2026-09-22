@@ -1,15 +1,26 @@
 package com.example.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 
 val AppleGrayLight = Color(0xFF8E8E93)
 
+val AppleShapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(14.dp),
+    medium = RoundedCornerShape(20.dp),
+    large = RoundedCornerShape(26.dp),
+    extraLarge = RoundedCornerShape(32.dp)
+)
+
 private val OledDarkColorScheme = darkColorScheme(
+
     primary = Color.White,
     onPrimary = Color.Black,
     primaryContainer = DarkSurfaceElevated,
@@ -56,6 +67,7 @@ fun SalimTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        shapes = AppleShapes,
         content = content
     )
 }

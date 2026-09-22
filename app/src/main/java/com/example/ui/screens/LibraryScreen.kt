@@ -1,8 +1,6 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,7 +29,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -40,8 +37,6 @@ import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -52,7 +47,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -76,8 +70,11 @@ import com.example.ui.components.VideoActionSheet
 import com.example.ui.components.VideoGridItem
 import com.example.ui.components.VideoListItem
 import com.example.ui.theme.DarkSurfaceElevated
+import com.example.ui.theme.LightSurfaceElevated
 import com.example.ui.theme.TextPrimaryDark
+import com.example.ui.theme.TextPrimaryLight
 import com.example.ui.theme.TextSecondaryDark
+import com.example.ui.theme.TextSecondaryLight
 import kotlinx.coroutines.launch
 
 enum class LibraryTab(val title: String) {
@@ -100,6 +97,10 @@ fun LibraryScreen(
     val continueVideos by videoRepository.continueWatchingVideos.collectAsState(initial = emptyList())
     val playlists by videoRepository.allPlaylists.collectAsState(initial = emptyList())
     val settings by settingsRepository.userSettingsFlow.collectAsState(initial = UserSettings())
+
+    val isLightMode = settings.themeMode == "light"
+    val primaryTextColor = if (isLightMode) TextPrimaryLight else TextPrimaryDark
+    val secondaryTextColor = if (isLightMode) TextSecondaryLight else TextSecondaryDark
 
     var selectedTab by remember { mutableStateOf(LibraryTab.ALL) }
     var searchQuery by remember { mutableStateOf("") }
@@ -124,7 +125,7 @@ fun LibraryScreen(
                         allVideos
                     }
                 }
-                LibraryTab.PLAYLISTS -> allVideos // filtered when playlist is selected
+                LibraryTab.PLAYLISTS -> allVideos
             }
 
             var result = if (searchQuery.isNotBlank()) {
@@ -156,7 +157,10 @@ fun LibraryScreen(
 
     LiquidSmokeBackground(
         modifier = modifier.fillMaxSize(),
-        alphaMultiplier = 0.35f
+        isLightMode = isLightMode,
+        accentTheme = settings.smokeGradientTheme,
+        alphaMultiplier = settings.smokeIntensity,
+        speedMultiplier = settings.smokeSpeed
     ) {
         Column(
             modifier = Modifier
@@ -174,14 +178,14 @@ fun LibraryScreen(
                 Column {
                     Text(
                         text = "Salim",
-                        color = TextPrimaryDark,
+                        color = primaryTextColor,
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.35.sp
                     )
                     Text(
                         text = "${allVideos.size} on-device videos",
-                        color = TextSecondaryDark,
+                        color = secondaryTextColor,
                         fontSize = 13.sp
                     )
                 }
@@ -192,43 +196,43 @@ fun LibraryScreen(
                         Icon(
                             imageVector = if (isSearchActive) Icons.Default.Close else Icons.Default.Search,
                             contentDescription = "Search",
-                            tint = Color.White
+                            tint = primaryTextColor
                         )
                     }
 
                     // Sort menu button
                     Box {
                         IconButton(onClick = { showSortMenu = true }) {
-                            Icon(imageVector = Icons.Default.Sort, contentDescription = "Sort", tint = Color.White)
+                            Icon(imageVector = Icons.Default.Sort, contentDescription = "Sort", tint = primaryTextColor)
                         }
                         DropdownMenu(
                             expanded = showSortMenu,
                             onDismissRequest = { showSortMenu = false },
-                            modifier = Modifier.background(DarkSurfaceElevated)
+                            modifier = Modifier.background(if (isLightMode) LightSurfaceElevated else DarkSurfaceElevated)
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Date Added", color = Color.White) },
+                                text = { Text("Date Added", color = primaryTextColor) },
                                 onClick = {
                                     scope.launch { settingsRepository.setSortOption("date") }
                                     showSortMenu = false
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Video Title", color = Color.White) },
+                                text = { Text("Video Title", color = primaryTextColor) },
                                 onClick = {
                                     scope.launch { settingsRepository.setSortOption("name") }
                                     showSortMenu = false
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Duration", color = Color.White) },
+                                text = { Text("Duration", color = primaryTextColor) },
                                 onClick = {
                                     scope.launch { settingsRepository.setSortOption("duration") }
                                     showSortMenu = false
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("File Size", color = Color.White) },
+                                text = { Text("File Size", color = primaryTextColor) },
                                 onClick = {
                                     scope.launch { settingsRepository.setSortOption("size") }
                                     showSortMenu = false
@@ -245,7 +249,7 @@ fun LibraryScreen(
                         Icon(
                             imageVector = if (settings.viewMode == "grid") Icons.Default.ViewList else Icons.Default.GridView,
                             contentDescription = "Toggle View Mode",
-                            tint = Color.White
+                            tint = primaryTextColor
                         )
                     }
 
@@ -254,7 +258,7 @@ fun LibraryScreen(
                         Icon(
                             imageVector = Icons.Default.Settings,
                             contentDescription = "Settings",
-                            tint = Color.White
+                            tint = primaryTextColor
                         )
                     }
                 }
@@ -265,14 +269,15 @@ fun LibraryScreen(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search your local videos...", color = Color.Gray) },
+                    placeholder = { Text("Search your local videos...", color = secondaryTextColor) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color.White,
-                        unfocusedBorderColor = Color(0x33FFFFFF)
+                        focusedTextColor = primaryTextColor,
+                        unfocusedTextColor = primaryTextColor,
+                        focusedBorderColor = Color(0xFF007AFF),
+                        unfocusedBorderColor = if (isLightMode) Color(0x33000000) else Color(0x33FFFFFF)
                     ),
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp, vertical = 6.dp)
@@ -281,7 +286,8 @@ fun LibraryScreen(
 
             // Apple-style Segmented Control Tabs
             GlassSurface(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(18.dp),
+                isLightMode = isLightMode,
                 transparencyAlpha = settings.liquidGlassAlpha,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -298,8 +304,12 @@ fun LibraryScreen(
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (isSelected) Color.White.copy(alpha = 0.2f) else Color.Transparent)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(
+                                    if (isSelected) {
+                                        if (isLightMode) Color(0xFF007AFF) else Color.White.copy(alpha = 0.22f)
+                                    } else Color.Transparent
+                                )
                                 .clickable {
                                     selectedTab = tab
                                     activeFolderFilter = null
@@ -310,7 +320,9 @@ fun LibraryScreen(
                         ) {
                             Text(
                                 text = tab.title,
-                                color = if (isSelected) Color.White else TextSecondaryDark,
+                                color = if (isSelected) {
+                                    if (isLightMode) Color.White else Color.White
+                                } else secondaryTextColor,
                                 fontSize = 12.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                             )
@@ -319,7 +331,7 @@ fun LibraryScreen(
                 }
             }
 
-            // Breadcrumb if folder or playlist is drilled into
+            // Breadcrumb if folder drilled into
             if (activeFolderFilter != null) {
                 Row(
                     modifier = Modifier
@@ -329,14 +341,14 @@ fun LibraryScreen(
                 ) {
                     Text(
                         text = "Folder: $activeFolderFilter",
-                        color = Color(0xFF64D2FF),
+                        color = Color(0xFF007AFF),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "(Show all folders)",
-                        color = TextSecondaryDark,
+                        color = secondaryTextColor,
                         fontSize = 12.sp,
                         modifier = Modifier.clickable { activeFolderFilter = null }
                     )
@@ -349,13 +361,13 @@ fun LibraryScreen(
                     VideoListOrGrid(
                         videos = filteredVideos,
                         viewMode = settings.viewMode,
+                        isLightMode = isLightMode,
                         onVideoClick = { video -> onVideoSelected(video, filteredVideos) },
                         onVideoLongPress = { video -> actionSheetVideo = video }
                     )
                 }
                 LibraryTab.FOLDERS -> {
                     if (activeFolderFilter == null) {
-                        // Folders Grid
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(2),
                             contentPadding = PaddingValues(16.dp),
@@ -366,6 +378,7 @@ fun LibraryScreen(
                             items(foldersMap.entries.toList(), key = { it.key }) { entry ->
                                 GlassSurface(
                                     shape = RoundedCornerShape(20.dp),
+                                    isLightMode = isLightMode,
                                     transparencyAlpha = settings.liquidGlassAlpha,
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -381,20 +394,20 @@ fun LibraryScreen(
                                         Icon(
                                             imageVector = Icons.Default.Folder,
                                             contentDescription = null,
-                                            tint = Color(0xFF64D2FF),
+                                            tint = Color(0xFF007AFF),
                                             modifier = Modifier.size(28.dp)
                                         )
                                         Column {
                                             Text(
                                                 text = entry.key,
-                                                color = Color.White,
+                                                color = primaryTextColor,
                                                 fontSize = 15.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 maxLines = 1
                                             )
                                             Text(
                                                 text = "${entry.value.size} videos",
-                                                color = TextSecondaryDark,
+                                                color = secondaryTextColor,
                                                 fontSize = 12.sp
                                             )
                                         }
@@ -403,10 +416,10 @@ fun LibraryScreen(
                             }
                         }
                     } else {
-                        // Videos inside the selected folder
                         VideoListOrGrid(
                             videos = filteredVideos,
                             viewMode = settings.viewMode,
+                            isLightMode = isLightMode,
                             onVideoClick = { video -> onVideoSelected(video, filteredVideos) },
                             onVideoLongPress = { video -> actionSheetVideo = video }
                         )
@@ -418,10 +431,10 @@ fun LibraryScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        // Create Playlist Button Card
                         item {
                             GlassSurface(
                                 shape = RoundedCornerShape(18.dp),
+                                isLightMode = isLightMode,
                                 transparencyAlpha = settings.liquidGlassAlpha,
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -435,13 +448,13 @@ fun LibraryScreen(
                                     Icon(
                                         imageVector = Icons.Default.Add,
                                         contentDescription = null,
-                                        tint = Color(0xFF64D2FF),
+                                        tint = Color(0xFF007AFF),
                                         modifier = Modifier.size(24.dp)
                                     )
                                     Spacer(modifier = Modifier.width(14.dp))
                                     Text(
                                         text = "Create New Playlist",
-                                        color = Color.White,
+                                        color = primaryTextColor,
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
@@ -459,7 +472,7 @@ fun LibraryScreen(
                                 ) {
                                     Text(
                                         text = "No playlists created yet.\nCreate custom playlists to organize your local videos.",
-                                        color = TextSecondaryDark,
+                                        color = secondaryTextColor,
                                         textAlign = TextAlign.Center,
                                         fontSize = 14.sp
                                     )
@@ -469,13 +482,12 @@ fun LibraryScreen(
                             items(playlists, key = { it.playlistId }) { pl ->
                                 GlassSurface(
                                     shape = RoundedCornerShape(18.dp),
+                                    isLightMode = isLightMode,
                                     transparencyAlpha = settings.liquidGlassAlpha,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(vertical = 2.dp),
-                                    onClick = {
-                                        activePlaylistFilter = pl
-                                    }
+                                    onClick = { activePlaylistFilter = pl }
                                 ) {
                                     Row(
                                         modifier = Modifier
@@ -488,20 +500,20 @@ fun LibraryScreen(
                                             Icon(
                                                 imageVector = Icons.Default.PlaylistPlay,
                                                 contentDescription = null,
-                                                tint = Color.White,
+                                                tint = Color(0xFF007AFF),
                                                 modifier = Modifier.size(28.dp)
                                             )
                                             Spacer(modifier = Modifier.width(14.dp))
                                             Column {
                                                 Text(
                                                     text = pl.name,
-                                                    color = Color.White,
+                                                    color = primaryTextColor,
                                                     fontSize = 16.sp,
                                                     fontWeight = FontWeight.SemiBold
                                                 )
                                                 Text(
                                                     text = "Local Playlist",
-                                                    color = TextSecondaryDark,
+                                                    color = secondaryTextColor,
                                                     fontSize = 12.sp
                                                 )
                                             }
@@ -522,12 +534,8 @@ fun LibraryScreen(
             video = video,
             playlists = playlists,
             onDismiss = { actionSheetVideo = null },
-            onPlayNext = {
-                onVideoSelected(video, allVideos)
-            },
-            onAddToQueue = {
-                // Video added
-            },
+            onPlayNext = { onVideoSelected(video, allVideos) },
+            onAddToQueue = { /* added */ },
             onAddToPlaylist = { plId ->
                 scope.launch { videoRepository.addVideoToPlaylist(plId, video.id) }
             },
@@ -558,18 +566,18 @@ fun LibraryScreen(
         var playlistName by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showCreatePlaylistDialog = false },
-            containerColor = Color(0xFF1E2029),
-            title = { Text("New Playlist", color = Color.White, fontWeight = FontWeight.Bold) },
+            containerColor = if (isLightMode) Color(0xFFF7F8FA) else Color(0xFF1E2029),
+            title = { Text("New Playlist", color = primaryTextColor, fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
                     value = playlistName,
                     onValueChange = { playlistName = it },
-                    placeholder = { Text("Enter playlist title", color = Color.Gray) },
+                    placeholder = { Text("Enter playlist title", color = secondaryTextColor) },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color.White,
-                        unfocusedBorderColor = Color(0x44FFFFFF)
+                        focusedTextColor = primaryTextColor,
+                        unfocusedTextColor = primaryTextColor,
+                        focusedBorderColor = Color(0xFF007AFF),
+                        unfocusedBorderColor = if (isLightMode) Color(0x33000000) else Color(0x44FFFFFF)
                     ),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -582,12 +590,12 @@ fun LibraryScreen(
                     }
                     showCreatePlaylistDialog = false
                 }) {
-                    Text("Create", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Create", color = Color(0xFF007AFF), fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showCreatePlaylistDialog = false }) {
-                    Text("Cancel", color = TextSecondaryDark)
+                    Text("Cancel", color = secondaryTextColor)
                 }
             }
         )
@@ -598,9 +606,12 @@ fun LibraryScreen(
 private fun VideoListOrGrid(
     videos: List<VideoItemEntity>,
     viewMode: String,
+    isLightMode: Boolean,
     onVideoClick: (VideoItemEntity) -> Unit,
     onVideoLongPress: (VideoItemEntity) -> Unit
 ) {
+    val secondaryTextColor = if (isLightMode) TextSecondaryLight else TextSecondaryDark
+
     if (videos.isEmpty()) {
         Box(
             modifier = Modifier
@@ -610,7 +621,7 @@ private fun VideoListOrGrid(
         ) {
             Text(
                 text = "No videos found.\nVideos saved in your device storage will show up automatically.",
-                color = TextSecondaryDark,
+                color = secondaryTextColor,
                 textAlign = TextAlign.Center,
                 fontSize = 15.sp,
                 lineHeight = 22.sp
@@ -627,6 +638,7 @@ private fun VideoListOrGrid(
             items(videos, key = { it.id }) { video ->
                 VideoGridItem(
                     video = video,
+                    isLightMode = isLightMode,
                     onClick = { onVideoClick(video) },
                     onLongPressThreshold = { onVideoLongPress(video) }
                 )
@@ -641,6 +653,7 @@ private fun VideoListOrGrid(
             items(videos, key = { it.id }) { video ->
                 VideoListItem(
                     video = video,
+                    isLightMode = isLightMode,
                     onClick = { onVideoClick(video) },
                     onLongPressThreshold = { onVideoLongPress(video) }
                 )

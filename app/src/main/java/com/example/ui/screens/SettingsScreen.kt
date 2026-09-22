@@ -25,17 +25,24 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Brightness4
 import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Subtitles
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -60,6 +67,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -74,7 +82,9 @@ import com.example.ui.components.LiquidSmokeBackground
 import com.example.ui.theme.DarkGlassBase
 import com.example.ui.theme.DarkSurfaceElevated
 import com.example.ui.theme.TextPrimaryDark
+import com.example.ui.theme.TextPrimaryLight
 import com.example.ui.theme.TextSecondaryDark
+import com.example.ui.theme.TextSecondaryLight
 import kotlinx.coroutines.launch
 
 @Composable
@@ -88,13 +98,21 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val settings by settingsRepository.userSettingsFlow.collectAsState(initial = UserSettings())
 
+    val isLightMode = settings.themeMode == "light"
+    val primaryTextColor = if (isLightMode) TextPrimaryLight else TextPrimaryDark
+    val secondaryTextColor = if (isLightMode) TextSecondaryLight else TextSecondaryDark
+    val dividerColor = if (isLightMode) Color(0x1A000000) else Color(0x1AFFFFFF)
+
     var showClearHistoryDialog by remember { mutableStateOf(false) }
     var showImportJsonDialog by remember { mutableStateOf(false) }
     var importJsonText by remember { mutableStateOf("") }
 
     LiquidSmokeBackground(
         modifier = modifier.fillMaxSize(),
-        alphaMultiplier = 0.25f
+        isLightMode = isLightMode,
+        accentTheme = settings.smokeGradientTheme,
+        alphaMultiplier = settings.smokeIntensity,
+        speedMultiplier = settings.smokeSpeed
     ) {
         Column(
             modifier = Modifier
@@ -113,6 +131,7 @@ fun SettingsScreen(
             ) {
                 GlassSurface(
                     shape = RoundedCornerShape(16.dp),
+                    isLightMode = isLightMode,
                     transparencyAlpha = settings.liquidGlassAlpha,
                     modifier = Modifier.size(44.dp),
                     onClick = onBack
@@ -120,7 +139,7 @@ fun SettingsScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = Color.White,
+                        tint = primaryTextColor,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -129,178 +148,266 @@ fun SettingsScreen(
 
                 Text(
                     text = "Settings",
-                    color = TextPrimaryDark,
+                    color = primaryTextColor,
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Section: Appearance & Material
-            SettingsSectionHeader(title = "APPEARANCE & MATERIAL")
+            // 1. Theme & Appearance
+            SettingsSectionHeader(title = "THEME & LIGHT MODE", color = secondaryTextColor)
             GlassSurface(
                 shape = RoundedCornerShape(22.dp),
+                isLightMode = isLightMode,
                 transparencyAlpha = settings.liquidGlassAlpha,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    // True Black OLED
-                    SettingsToggleRow(
-                        icon = Icons.Default.Brightness4,
-                        title = "True Black OLED",
-                        subtitle = "Pure black #000000 pixels on OLED displays",
-                        checked = settings.isTrueBlackOled,
-                        onCheckedChange = { scope.launch { settingsRepository.setTrueBlackOled(it) } }
-                    )
-
-                    HorizontalDivider(color = Color(0x1AFFFFFF), modifier = Modifier.padding(vertical = 12.dp))
-
-                    // Liquid Glass Transparency
-                    Column {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Layers,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = "Liquid Glass Opacity",
-                                    color = Color.White,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
+                    // Light / Dark Theme selector
+                    Text(text = "App Theme Mode", color = primaryTextColor, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(
+                            Triple("light", "Light Mode", Icons.Default.WbSunny),
+                            Triple("dark", "Dark OLED", Icons.Default.Brightness4),
+                            Triple("system", "System", Icons.Default.Contrast)
+                        ).forEach { (modeKey, modeTitle, icon) ->
+                            val isSelected = settings.themeMode == modeKey
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(
+                                        if (isSelected) {
+                                            if (isLightMode) Color(0xFF007AFF) else Color.White
+                                        } else {
+                                            if (isLightMode) Color(0x14000000) else Color(0x22FFFFFF)
+                                        }
+                                    )
+                                    .clickable { scope.launch { settingsRepository.setThemeMode(modeKey) } }
+                                    .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(
+                                        imageVector = icon,
+                                        contentDescription = null,
+                                        tint = if (isSelected) {
+                                            if (isLightMode) Color.White else Color.Black
+                                        } else primaryTextColor,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = modeTitle,
+                                        color = if (isSelected) {
+                                            if (isLightMode) Color.White else Color.Black
+                                        } else primaryTextColor,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
                             }
-                            Text(
-                                text = "${(settings.liquidGlassAlpha * 100).toInt()}%",
-                                color = Color(0xFF64D2FF),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
-                            )
                         }
-
-                        Slider(
-                            value = settings.liquidGlassAlpha,
-                            onValueChange = { scope.launch { settingsRepository.setLiquidGlassAlpha(it) } },
-                            valueRange = 0.25f..0.95f,
-                            colors = SliderDefaults.colors(
-                                thumbColor = Color.White,
-                                activeTrackColor = Color.White,
-                                inactiveTrackColor = Color.White.copy(alpha = 0.25f)
-                            )
-                        )
                     }
 
-                    HorizontalDivider(color = Color(0x1AFFFFFF), modifier = Modifier.padding(vertical = 12.dp))
+                    HorizontalDivider(color = dividerColor, modifier = Modifier.padding(vertical = 14.dp))
 
-                    // High Contrast Controls
-                    SettingsToggleRow(
-                        icon = Icons.Default.Contrast,
-                        title = "High Contrast Controls",
-                        subtitle = "Disables translucent glass in favor of solid high-contrast surfaces",
-                        checked = settings.highContrastControls,
-                        onCheckedChange = { scope.launch { settingsRepository.setHighContrastControls(it) } }
+                    // Smoke Gradient Accent Theme
+                    Text(text = "Smoke Fog Gradient Accent", color = primaryTextColor, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(
+                            Pair("blue_green_orange", "Blue, Green & Orange (Apple White / Fog)"),
+                            Pair("google", "Google Spectrum (Blue, Red, Yellow, Green)"),
+                            Pair("sunset", "Apple Sunset (Warm Orange, Pink & Purple)"),
+                            Pair("aurora", "Aurora Borealis (Emerald, Teal & Cyan)")
+                        ).forEach { (themeKey, label) ->
+                            val isSelected = settings.smokeGradientTheme == themeKey
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(
+                                        if (isSelected) {
+                                            if (isLightMode) Color(0x14007AFF) else Color(0x33FFFFFF)
+                                        } else Color.Transparent
+                                    )
+                                    .clickable { scope.launch { settingsRepository.setSmokeGradientTheme(themeKey) } }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = if (isSelected) Color(0xFF007AFF) else primaryTextColor,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                                if (isSelected) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF007AFF))
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = dividerColor, modifier = Modifier.padding(vertical = 14.dp))
+
+                    // Smoke Intensity Slider
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = "Smoke Fog Opacity", color = primaryTextColor, fontSize = 14.sp)
+                        Text(text = "${(settings.smokeIntensity * 100).toInt()}%", color = Color(0xFF007AFF), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Slider(
+                        value = settings.smokeIntensity,
+                        onValueChange = { scope.launch { settingsRepository.setSmokeIntensity(it) } },
+                        valueRange = 0.2f..0.85f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = if (isLightMode) Color(0xFF007AFF) else Color.White,
+                            activeTrackColor = if (isLightMode) Color(0xFF007AFF) else Color.White,
+                            inactiveTrackColor = if (isLightMode) Color(0x22000000) else Color(0x33FFFFFF)
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    // Smoke Motion Speed
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = "Gentle Drift Motion Speed", color = primaryTextColor, fontSize = 14.sp)
+                        Text(text = "${String.format("%.1f", settings.smokeSpeed)}x", color = Color(0xFF007AFF), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Slider(
+                        value = settings.smokeSpeed,
+                        onValueChange = { scope.launch { settingsRepository.setSmokeSpeed(it) } },
+                        valueRange = 0.5f..2.0f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = if (isLightMode) Color(0xFF007AFF) else Color.White,
+                            activeTrackColor = if (isLightMode) Color(0xFF007AFF) else Color.White,
+                            inactiveTrackColor = if (isLightMode) Color(0x22000000) else Color(0x33FFFFFF)
+                        )
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Section: Playback Behavior
-            SettingsSectionHeader(title = "PLAYBACK ENGINE")
+            // 2. Playback & Video Engine Features
+            SettingsSectionHeader(title = "ADVANCED VIDEO CONTROLS", color = secondaryTextColor)
             GlassSurface(
                 shape = RoundedCornerShape(22.dp),
+                isLightMode = isLightMode,
                 transparencyAlpha = settings.liquidGlassAlpha,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    // Default Skip Duration
+                    // Double-Tap Skip Duration
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.FastForward,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            Icon(imageVector = Icons.Default.FastForward, contentDescription = null, tint = primaryTextColor, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "Double-Tap Skip Duration",
-                                color = Color.White,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Medium
-                            )
+                            Text(text = "Double-Tap Seek", color = primaryTextColor, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                         }
 
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(5, 10, 15, 30).forEach { sec ->
+                            listOf(5, 10, 15, 20, 30).forEach { sec ->
                                 val isSelected = settings.defaultSkipDurationSec == sec
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(8.dp))
-                                        .background(if (isSelected) Color.White else Color(0x22FFFFFF))
+                                        .background(
+                                            if (isSelected) Color(0xFF007AFF) else if (isLightMode) Color(0x14000000) else Color(0x22FFFFFF)
+                                        )
                                         .clickable { scope.launch { settingsRepository.setDefaultSkipDuration(sec) } }
                                         .padding(horizontal = 8.dp, vertical = 4.dp)
                                 ) {
                                     Text(
                                         text = "${sec}s",
-                                        color = if (isSelected) Color.Black else Color.White,
+                                        color = if (isSelected) Color.White else primaryTextColor,
                                         fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold
+                                        fontWeight = FontWeight.Bold
                                     )
                                 }
                             }
                         }
                     }
 
-                    HorizontalDivider(color = Color(0x1AFFFFFF), modifier = Modifier.padding(vertical = 12.dp))
+                    HorizontalDivider(color = dividerColor, modifier = Modifier.padding(vertical = 12.dp))
 
-                    // Default Playback Speed
+                    // Audio Boost Toggle
+                    SettingsToggleRow(
+                        icon = Icons.Default.VolumeUp,
+                        title = "Audio Boost (up to 200%)",
+                        subtitle = "Allows boosting media volume past system threshold for quiet videos",
+                        checked = settings.audioBoostEnabled,
+                        primaryColor = primaryTextColor,
+                        secondaryColor = secondaryTextColor,
+                        onCheckedChange = { scope.launch { settingsRepository.setAudioBoostEnabled(it) } }
+                    )
+
+                    HorizontalDivider(color = dividerColor, modifier = Modifier.padding(vertical = 12.dp))
+
+                    // Long-Press 2.0x Fast Forward
+                    SettingsToggleRow(
+                        icon = Icons.Default.Speed,
+                        title = "Long-Press Fast Forward (2.0x)",
+                        subtitle = "Press and hold screen during video to temporarily play at 2.0x",
+                        checked = settings.longPressFastForward,
+                        primaryColor = primaryTextColor,
+                        secondaryColor = secondaryTextColor,
+                        onCheckedChange = { scope.launch { settingsRepository.setLongPressFastForward(it) } }
+                    )
+
+                    HorizontalDivider(color = dividerColor, modifier = Modifier.padding(vertical = 12.dp))
+
+                    // Screen Orientation Lock
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Speed,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            Icon(imageVector = Icons.Default.ScreenRotation, contentDescription = null, tint = primaryTextColor, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "Default Playback Speed",
-                                color = Color.White,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Medium
-                            )
+                            Text(text = "Orientation", color = primaryTextColor, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                         }
 
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(1.0f, 1.25f, 1.5f).forEach { spd ->
-                                val isSelected = settings.defaultPlaybackSpeed == spd
+                            listOf(Pair("sensor", "Auto"), Pair("landscape", "Landscape"), Pair("portrait", "Portrait")).forEach { (key, name) ->
+                                val isSelected = settings.screenOrientationLock == key
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(8.dp))
-                                        .background(if (isSelected) Color.White else Color(0x22FFFFFF))
-                                        .clickable { scope.launch { settingsRepository.setDefaultPlaybackSpeed(spd) } }
+                                        .background(
+                                            if (isSelected) Color(0xFF007AFF) else if (isLightMode) Color(0x14000000) else Color(0x22FFFFFF)
+                                        )
+                                        .clickable { scope.launch { settingsRepository.setScreenOrientationLock(key) } }
                                         .padding(horizontal = 8.dp, vertical = 4.dp)
                                 ) {
                                     Text(
-                                        text = "${spd}x",
-                                        color = if (isSelected) Color.Black else Color.White,
+                                        text = name,
+                                        color = if (isSelected) Color.White else primaryTextColor,
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
@@ -313,63 +420,57 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Section: Library & Data
-            SettingsSectionHeader(title = "LIBRARY & DATA")
+            // 3. Library & Data
+            SettingsSectionHeader(title = "LIBRARY & DATA", color = secondaryTextColor)
             GlassSurface(
                 shape = RoundedCornerShape(22.dp),
+                isLightMode = isLightMode,
                 transparencyAlpha = settings.liquidGlassAlpha,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    // Rescan Library
                     SettingsActionRow(
                         icon = Icons.Default.Refresh,
                         title = "Rescan Media Library",
-                        subtitle = "Forces a fresh sync with on-device video storage",
+                        subtitle = "Scans internal storage and SD card for new video files",
+                        primaryColor = primaryTextColor,
+                        secondaryColor = secondaryTextColor,
                         onClick = {
                             scope.launch {
                                 videoRepository.scanLibrary()
-                                Toast.makeText(context, "Media library scan completed", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Library scan completed", Toast.LENGTH_SHORT).show()
                             }
                         }
                     )
 
-                    HorizontalDivider(color = Color(0x1AFFFFFF), modifier = Modifier.padding(vertical = 12.dp))
+                    HorizontalDivider(color = dividerColor, modifier = Modifier.padding(vertical = 12.dp))
 
-                    // Export JSON Backup
                     SettingsActionRow(
                         icon = Icons.Default.Download,
-                        title = "Export Playlists to JSON",
-                        subtitle = "Copies your local playlists and metadata as JSON",
+                        title = "Export Playlists & Bookmarks",
+                        subtitle = "Copies backup JSON to clipboard",
+                        primaryColor = primaryTextColor,
+                        secondaryColor = secondaryTextColor,
                         onClick = {
                             scope.launch {
                                 val json = videoRepository.exportBackupJson()
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                 val clip = ClipData.newPlainText("Salim Backup", json)
                                 clipboard.setPrimaryClip(clip)
-                                Toast.makeText(context, "Exported JSON copied to clipboard!", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "Backup JSON copied to clipboard!", Toast.LENGTH_LONG).show()
                             }
                         }
                     )
 
-                    HorizontalDivider(color = Color(0x1AFFFFFF), modifier = Modifier.padding(vertical = 12.dp))
+                    HorizontalDivider(color = dividerColor, modifier = Modifier.padding(vertical = 12.dp))
 
-                    // Import JSON Backup
-                    SettingsActionRow(
-                        icon = Icons.Default.Upload,
-                        title = "Import Playlists from JSON",
-                        subtitle = "Restores playlists from exported JSON string",
-                        onClick = { showImportJsonDialog = true }
-                    )
-
-                    HorizontalDivider(color = Color(0x1AFFFFFF), modifier = Modifier.padding(vertical = 12.dp))
-
-                    // Clear History
                     SettingsActionRow(
                         icon = Icons.Default.Delete,
                         title = "Clear Watch History",
-                        subtitle = "Resets watch history logs across all videos",
+                        subtitle = "Resets resume timestamps across all media",
                         tint = Color(0xFFFF453A),
+                        primaryColor = Color(0xFFFF453A),
+                        secondaryColor = secondaryTextColor,
                         onClick = { showClearHistoryDialog = true }
                     )
                 }
@@ -377,30 +478,31 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Section: About
-            SettingsSectionHeader(title = "ABOUT")
+            // 4. About
+            SettingsSectionHeader(title = "ABOUT", color = secondaryTextColor)
             GlassSurface(
                 shape = RoundedCornerShape(22.dp),
+                isLightMode = isLightMode,
                 transparencyAlpha = settings.liquidGlassAlpha,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Text(
                         text = "Salim Video Player",
-                        color = Color.White,
+                        color = primaryTextColor,
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Version 1.0.0 • Production Build",
-                        color = TextSecondaryDark,
+                        text = "Version 2.0.0 • Apple Design Standard",
+                        color = secondaryTextColor,
                         fontSize = 13.sp
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Engineered to Apple design standard. Fully offline, on-device local video player with hardware acceleration, true black OLED, Liquid Glass physics, and zero telemetry.",
-                        color = TextSecondaryDark.copy(alpha = 0.8f),
+                        text = "Engineered with modern Apple HIG principles. Features gentle flowing chromatic smoke fog, frosted liquid glass materials, curved squircle buttons, hardware video decoding, A-B loop, 1.0x-5.0x zoom, frame capture, audio boost, and zero telemetry.",
+                        color = secondaryTextColor,
                         fontSize = 13.sp,
                         lineHeight = 18.sp
                     )
@@ -411,13 +513,12 @@ fun SettingsScreen(
         }
     }
 
-    // Clear History Dialog
     if (showClearHistoryDialog) {
         AlertDialog(
             onDismissRequest = { showClearHistoryDialog = false },
-            containerColor = Color(0xFF1E2029),
-            title = { Text("Clear Watch History?", color = Color.White, fontWeight = FontWeight.Bold) },
-            text = { Text("This will remove all entries from your watch history.", color = TextSecondaryDark) },
+            containerColor = if (isLightMode) Color(0xFFF7F8FA) else Color(0xFF1E2029),
+            title = { Text("Clear Watch History?", color = primaryTextColor, fontWeight = FontWeight.Bold) },
+            text = { Text("This will remove all progress timestamps from your videos.", color = secondaryTextColor) },
             confirmButton = {
                 TextButton(onClick = {
                     scope.launch {
@@ -431,52 +532,7 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showClearHistoryDialog = false }) {
-                    Text("Cancel", color = TextSecondaryDark)
-                }
-            }
-        )
-    }
-
-    // Import JSON Dialog
-    if (showImportJsonDialog) {
-        AlertDialog(
-            onDismissRequest = { showImportJsonDialog = false },
-            containerColor = Color(0xFF1E2029),
-            title = { Text("Import Playlists JSON", color = Color.White, fontWeight = FontWeight.Bold) },
-            text = {
-                OutlinedTextField(
-                    value = importJsonText,
-                    onValueChange = { importJsonText = it },
-                    placeholder = { Text("Paste JSON string here", color = Color.Gray) },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color.White,
-                        unfocusedBorderColor = Color(0x44FFFFFF)
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(150.dp)
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    scope.launch {
-                        val success = videoRepository.importBackupJson(importJsonText)
-                        if (success) {
-                            Toast.makeText(context, "Playlists restored successfully!", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Toast.makeText(context, "Invalid JSON format", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                    showImportJsonDialog = false
-                }) {
-                    Text("Import", color = Color.White, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showImportJsonDialog = false }) {
-                    Text("Cancel", color = TextSecondaryDark)
+                    Text("Cancel", color = secondaryTextColor)
                 }
             }
         )
@@ -484,10 +540,10 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsSectionHeader(title: String) {
+private fun SettingsSectionHeader(title: String, color: Color) {
     Text(
         text = title,
-        color = TextSecondaryDark,
+        color = color,
         fontSize = 12.sp,
         fontWeight = FontWeight.SemiBold,
         letterSpacing = 1.sp,
@@ -501,6 +557,8 @@ private fun SettingsToggleRow(
     title: String,
     subtitle: String,
     checked: Boolean,
+    primaryColor: Color,
+    secondaryColor: Color,
     onCheckedChange: (Boolean) -> Unit
 ) {
     Row(
@@ -515,14 +573,14 @@ private fun SettingsToggleRow(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = Color.White,
+                tint = primaryColor,
                 modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(14.dp))
             Column {
-                Text(text = title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                Text(text = title, color = primaryColor, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                 Spacer(modifier = Modifier.height(2.dp))
-                Text(text = subtitle, color = TextSecondaryDark, fontSize = 12.sp)
+                Text(text = subtitle, color = secondaryColor, fontSize = 12.sp)
             }
         }
 
@@ -544,7 +602,9 @@ private fun SettingsActionRow(
     icon: ImageVector,
     title: String,
     subtitle: String,
-    tint: Color = Color.White,
+    primaryColor: Color,
+    secondaryColor: Color,
+    tint: Color = primaryColor,
     onClick: () -> Unit
 ) {
     Row(
@@ -564,7 +624,7 @@ private fun SettingsActionRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(text = title, color = tint, fontSize = 15.sp, fontWeight = FontWeight.Medium)
             Spacer(modifier = Modifier.height(2.dp))
-            Text(text = subtitle, color = TextSecondaryDark, fontSize = 12.sp)
+            Text(text = subtitle, color = secondaryColor, fontSize = 12.sp)
         }
     }
 }

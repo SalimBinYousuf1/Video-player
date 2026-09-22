@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.RoomDatabase
+import com.example.data.model.BookmarkEntity
 import com.example.data.model.PlaylistEntity
 import com.example.data.model.PlaylistItemCrossRef
 import com.example.data.model.VideoItemEntity
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface VideoDao {
+
     @Query("SELECT * FROM videos ORDER BY dateAdded DESC")
     fun getAllVideos(): Flow<List<VideoItemEntity>>
 
@@ -95,18 +97,32 @@ interface WatchHistoryDao {
     suspend fun clearHistory()
 }
 
+@Dao
+interface BookmarkDao {
+    @Query("SELECT * FROM bookmarks WHERE videoId = :videoId ORDER BY positionMs ASC")
+    fun getBookmarksForVideo(videoId: Long): Flow<List<BookmarkEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBookmark(bookmark: BookmarkEntity): Long
+
+    @Query("DELETE FROM bookmarks WHERE bookmarkId = :bookmarkId")
+    suspend fun deleteBookmark(bookmarkId: Long)
+}
+
 @Database(
     entities = [
         VideoItemEntity::class,
         PlaylistEntity::class,
         PlaylistItemCrossRef::class,
-        WatchHistoryEntity::class
+        WatchHistoryEntity::class,
+        BookmarkEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class SalimDatabase : RoomDatabase() {
     abstract fun videoDao(): VideoDao
     abstract fun playlistDao(): PlaylistDao
     abstract fun watchHistoryDao(): WatchHistoryDao
+    abstract fun bookmarkDao(): BookmarkDao
 }
