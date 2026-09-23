@@ -47,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -66,6 +67,8 @@ import com.example.data.repository.UserSettingsRepository
 import com.example.data.repository.VideoRepository
 import com.example.ui.components.GlassSurface
 import com.example.ui.components.LiquidSmokeBackground
+import com.example.ui.components.PlaylistActionSheet
+import com.example.ui.components.PlaylistItemCard
 import com.example.ui.components.VideoActionSheet
 import com.example.ui.components.VideoGridItem
 import com.example.ui.components.VideoListItem
@@ -75,6 +78,7 @@ import com.example.ui.theme.TextPrimaryDark
 import com.example.ui.theme.TextPrimaryLight
 import com.example.ui.theme.TextSecondaryDark
 import com.example.ui.theme.TextSecondaryLight
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 enum class LibraryTab(val title: String) {
@@ -98,7 +102,12 @@ fun LibraryScreen(
     val playlists by videoRepository.allPlaylists.collectAsState(initial = emptyList())
     val settings by settingsRepository.userSettingsFlow.collectAsState(initial = UserSettings())
 
-    val isLightMode = settings.themeMode == "light"
+    val systemInDark = isSystemInDarkTheme()
+    val isLightMode = when (settings.themeMode) {
+        "light" -> true
+        "dark" -> false
+        else -> !systemInDark
+    }
     val primaryTextColor = if (isLightMode) TextPrimaryLight else TextPrimaryDark
     val secondaryTextColor = if (isLightMode) TextSecondaryLight else TextSecondaryDark
 
@@ -109,6 +118,7 @@ fun LibraryScreen(
     var activePlaylistFilter by remember { mutableStateOf<PlaylistEntity?>(null) }
 
     var actionSheetVideo by remember { mutableStateOf<VideoItemEntity?>(null) }
+    var actionSheetPlaylist by remember { mutableStateOf<PlaylistEntity?>(null) }
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
 
@@ -480,46 +490,13 @@ fun LibraryScreen(
                             }
                         } else {
                             items(playlists, key = { it.playlistId }) { pl ->
-                                GlassSurface(
-                                    shape = RoundedCornerShape(18.dp),
+                                PlaylistItemCard(
+                                    playlist = pl,
+                                    onClick = { activePlaylistFilter = pl },
+                                    onLongPressThreshold = { actionSheetPlaylist = pl },
                                     isLightMode = isLightMode,
-                                    transparencyAlpha = settings.liquidGlassAlpha,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 2.dp),
-                                    onClick = { activePlaylistFilter = pl }
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(16.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                imageVector = Icons.Default.PlaylistPlay,
-                                                contentDescription = null,
-                                                tint = Color(0xFF007AFF),
-                                                modifier = Modifier.size(28.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(14.dp))
-                                            Column {
-                                                Text(
-                                                    text = pl.name,
-                                                    color = primaryTextColor,
-                                                    fontSize = 16.sp,
-                                                    fontWeight = FontWeight.SemiBold
-                                                )
-                                                Text(
-                                                    text = "Local Playlist",
-                                                    color = secondaryTextColor,
-                                                    fontSize = 12.sp
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
+                                    liquidGlassAlpha = settings.liquidGlassAlpha
+                                )
                             }
                         }
                     }
@@ -558,6 +535,36 @@ fun LibraryScreen(
             fetchDetails = {
                 videoRepository.getDetailedMetadata(video)
             }
+        )
+    }
+
+    // Playlist 2-Second Hold Action Sheet (Play All, Rename, Delete)
+    actionSheetPlaylist?.let { playlist ->
+        PlaylistActionSheet(
+            playlist = playlist,
+            onDismiss = { actionSheetPlaylist = null },
+            onPlayAll = {
+                scope.launch {
+                    val plVideos = videoRepository.getVideosForPlaylist(playlist.playlistId).first()
+                    if (plVideos.isNotEmpty()) {
+                        onVideoSelected(plVideos.first(), plVideos)
+                    }
+                }
+            },
+            onRename = { newName ->
+                scope.launch {
+                    videoRepository.renamePlaylist(playlist.playlistId, newName)
+                }
+            },
+            onDelete = {
+                scope.launch {
+                    videoRepository.deletePlaylist(playlist.playlistId)
+                    if (activePlaylistFilter?.playlistId == playlist.playlistId) {
+                        activePlaylistFilter = null
+                    }
+                }
+            },
+            isLightMode = isLightMode
         )
     }
 

@@ -207,12 +207,17 @@ fun PlayerScreen(
         var touchWidth by remember { mutableFloatStateOf(1000f) }
         var touchHeight by remember { mutableFloatStateOf(2000f) }
 
+        val context = LocalContext.current
+        val activity = context as? android.app.Activity
+        val isInPip = activity?.isInPictureInPictureMode == true
+
+        // Vertical Drag Gestures: Left 40% -> Brightness, Right 40% -> Volume
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 // Transform Gestures: Pinch-to-zoom (1.0x - 5.0x) + Pan
-                .pointerInput(uiState.isLocked) {
-                    if (!uiState.isLocked) {
+                .pointerInput(uiState.isLocked, isInPip) {
+                    if (!uiState.isLocked && !isInPip) {
                         detectTransformGestures { _, pan, zoom, _ ->
                             val newZoom = (uiState.zoomScale * zoom).coerceIn(1.0f, 5.0f)
                             val newPanX = if (newZoom > 1.0f) uiState.panOffsetX + pan.x else 0f
@@ -222,58 +227,61 @@ fun PlayerScreen(
                     }
                 }
                 // Tap, Double-tap, and YouTube-style Long Press 2.0x Fast Forward Hold
-                .pointerInput(uiState.isLocked, uiState.doubleTapSeekSeconds) {
+                .pointerInput(uiState.isLocked, uiState.doubleTapSeekSeconds, isInPip) {
                     touchWidth = size.width.toFloat()
                     touchHeight = size.height.toFloat()
 
-                    detectTapGestures(
-                        onTap = {
-                            playbackManager.toggleControls()
-                        },
-                        onDoubleTap = { offset ->
-                            if (!uiState.isLocked) {
-                                val seekSeconds = uiState.doubleTapSeekSeconds
-                                if (offset.x < touchWidth * 0.38f) {
-                                    playbackManager.seekBy(-seekSeconds)
-                                } else if (offset.x > touchWidth * 0.62f) {
-                                    playbackManager.seekBy(seekSeconds)
-                                } else {
-                                    playbackManager.togglePlayPause()
-                                }
-                            }
-                        },
-                        onPress = {
-                            if (!uiState.isLocked) {
-                                try {
-                                    // Await long press check
-                                    val isLongPress = tryAwaitRelease()
-                                    if (uiState.isFastForwardingPreview) {
-                                        playbackManager.stopTemporaryFastForward()
-                                    }
-                                } finally {
-                                    if (uiState.isFastForwardingPreview) {
-                                        playbackManager.stopTemporaryFastForward()
+                    if (!isInPip) {
+                        detectTapGestures(
+                            onTap = {
+                                playbackManager.toggleControls()
+                            },
+                            onDoubleTap = { offset ->
+                                if (!uiState.isLocked) {
+                                    val seekSeconds = uiState.doubleTapSeekSeconds
+                                    if (offset.x < touchWidth * 0.38f) {
+                                        playbackManager.seekBy(-seekSeconds)
+                                    } else if (offset.x > touchWidth * 0.62f) {
+                                        playbackManager.seekBy(seekSeconds)
+                                    } else {
+                                        playbackManager.togglePlayPause()
                                     }
                                 }
+                            },
+                            onPress = {
+                                if (!uiState.isLocked) {
+                                    try {
+                                        val isLongPress = tryAwaitRelease()
+                                        if (uiState.isFastForwardingPreview) {
+                                            playbackManager.stopTemporaryFastForward()
+                                        }
+                                    } finally {
+                                        if (uiState.isFastForwardingPreview) {
+                                            playbackManager.stopTemporaryFastForward()
+                                        }
+                                    }
+                                }
+                            },
+                            onLongPress = {
+                                if (!uiState.isLocked) {
+                                    playbackManager.startTemporaryFastForward()
+                                }
                             }
-                        },
-                        onLongPress = {
-                            if (!uiState.isLocked) {
-                                playbackManager.startTemporaryFastForward()
-                            }
-                        }
-                    )
+                        )
+                    }
                 }
-                // Vertical Drag Gestures: Left half -> Brightness, Right half -> Volume
-                .pointerInput(uiState.isLocked) {
-                    if (!uiState.isLocked) {
+                // Vertical Drag Gestures: Left 40% -> Brightness, Right 40% -> Volume (Center 20% deadzone)
+                .pointerInput(uiState.isLocked, isInPip) {
+                    if (!uiState.isLocked && !isInPip) {
                         detectDragGestures { change, dragAmount ->
                             change.consume()
-                            val isLeft = change.position.x < (size.width / 2f)
-                            val deltaFraction = -dragAmount.y / (size.height * 0.75f)
-                            if (isLeft) {
+                            val posX = change.position.x
+                            val totalW = size.width.toFloat()
+                            val deltaFraction = -dragAmount.y / (size.height * 0.60f)
+
+                            if (posX < totalW * 0.40f) {
                                 playbackManager.adjustBrightness(deltaFraction)
-                            } else {
+                            } else if (posX > totalW * 0.60f) {
                                 playbackManager.adjustVolume(deltaFraction)
                             }
                         }
@@ -281,9 +289,9 @@ fun PlayerScreen(
                 }
         )
 
-        // Volume / Brightness Floating HUD Indicators
+        // Volume / Brightness Floating HUD Indicators (Suppressed in PiP)
         AnimatedVisibility(
-            visible = uiState.showVolumeIndicator,
+            visible = !isInPip && uiState.showVolumeIndicator,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier
@@ -294,7 +302,7 @@ fun PlayerScreen(
         }
 
         AnimatedVisibility(
-            visible = uiState.showBrightnessIndicator,
+            visible = !isInPip && uiState.showBrightnessIndicator,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier
@@ -304,20 +312,22 @@ fun PlayerScreen(
             GestureLevelIndicator(isVolume = false, levelFraction = uiState.brightnessLevel)
         }
 
-        // Status Banners (Fast Forward / A-B Loop)
-        PlayerStatusBanner(
-            isFastForwarding = uiState.isFastForwardingPreview,
-            isAbLoopActive = uiState.isAbLoopActive,
-            loopPointA = uiState.loopPointA,
-            loopPointB = uiState.loopPointB,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 76.dp)
-        )
+        // Status Banners (Fast Forward / A-B Loop - Suppressed in PiP)
+        if (!isInPip) {
+            PlayerStatusBanner(
+                isFastForwarding = uiState.isFastForwardingPreview,
+                isAbLoopActive = uiState.isAbLoopActive,
+                loopPointA = uiState.loopPointA,
+                loopPointB = uiState.loopPointB,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 76.dp)
+            )
+        }
 
-        // Apple Liquid Glass Controls Overlay
+        // Apple Liquid Glass Controls Overlay (Suppressed in PiP)
         AnimatedVisibility(
-            visible = uiState.isControlsVisible,
+            visible = !isInPip && uiState.isControlsVisible,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier.fillMaxSize()

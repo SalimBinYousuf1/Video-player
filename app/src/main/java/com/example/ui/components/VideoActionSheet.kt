@@ -445,3 +445,188 @@ private fun shareVideo(context: Context, video: VideoItemEntity) {
         e.printStackTrace()
     }
 }
+
+/**
+ * Bottom Sheet for Playlist Management:
+ * 1. Play All
+ * 2. Rename Playlist
+ * 3. Delete Playlist
+ * Operates reliably using the stable identifier playlist.playlistId.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PlaylistActionSheet(
+    playlist: PlaylistEntity,
+    onDismiss: () -> Unit,
+    onPlayAll: () -> Unit,
+    onRename: (String) -> Unit,
+    onDelete: () -> Unit,
+    isLightMode: Boolean = false
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var renameText by remember { mutableStateOf(playlist.name) }
+
+    val bgColor = if (isLightMode) Color(0xFFF7F8FA) else Color(0xFF1C1D24)
+    val primaryText = if (isLightMode) Color(0xFF1D1D1F) else Color.White
+    val secondaryText = if (isLightMode) Color(0xFF6E6E73) else Color(0xFF9898A0)
+    val dividerColor = if (isLightMode) Color(0x1A000000) else Color(0x1FFFFFFF)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = bgColor,
+        tonalElevation = 0.dp,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 36.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF007AFF).copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Folder,
+                        contentDescription = null,
+                        tint = Color(0xFF007AFF),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(14.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = playlist.name,
+                        color = primaryText,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Local Playlist",
+                        color = secondaryText,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+
+            HorizontalDivider(color = dividerColor, modifier = Modifier.padding(vertical = 8.dp))
+
+            // Play All
+            ActionSheetItem(
+                icon = Icons.Default.PlayArrow,
+                label = "Play All",
+                tint = primaryText,
+                onClick = {
+                    onPlayAll()
+                    onDismiss()
+                }
+            )
+
+            // Rename
+            ActionSheetItem(
+                icon = Icons.Default.Edit,
+                label = "Rename Playlist",
+                tint = primaryText,
+                onClick = {
+                    renameText = playlist.name
+                    showRenameDialog = true
+                }
+            )
+
+            // Delete
+            ActionSheetItem(
+                icon = Icons.Default.Delete,
+                label = "Delete Playlist",
+                tint = Color(0xFFFF453A),
+                onClick = {
+                    showDeleteConfirmDialog = true
+                }
+            )
+        }
+    }
+
+    // Rename Dialog
+    if (showRenameDialog) {
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            containerColor = bgColor,
+            title = { Text("Rename Playlist", color = primaryText, fontWeight = FontWeight.Bold) },
+            text = {
+                OutlinedTextField(
+                    value = renameText,
+                    onValueChange = { renameText = it },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = primaryText,
+                        unfocusedTextColor = primaryText,
+                        focusedBorderColor = Color(0xFF007AFF),
+                        unfocusedBorderColor = dividerColor
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (renameText.isNotBlank()) {
+                        onRename(renameText.trim())
+                    }
+                    showRenameDialog = false
+                    onDismiss()
+                }) {
+                    Text("Save", color = Color(0xFF007AFF), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = false }) {
+                    Text("Cancel", color = secondaryText)
+                }
+            }
+        )
+    }
+
+    // Delete Confirmation Dialog
+    if (showDeleteConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            containerColor = bgColor,
+            title = { Text("Delete Playlist", color = primaryText, fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "Are you sure you want to delete \"${playlist.name}\"? Videos will remain on your device.",
+                    color = secondaryText,
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirmDialog = false
+                    onDelete()
+                    onDismiss()
+                }) {
+                    Text("Delete", color = Color(0xFFFF453A), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                    Text("Cancel", color = secondaryText)
+                }
+            }
+        )
+    }
+}

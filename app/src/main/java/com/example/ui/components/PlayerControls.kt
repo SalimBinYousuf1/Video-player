@@ -95,94 +95,94 @@ fun PlayerTopBar(
         modifier = modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Back Button
         GlassSurface(
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(14.dp),
             transparencyAlpha = transparencyAlpha,
-            modifier = Modifier.size(44.dp),
+            modifier = Modifier.size(36.dp),
             onClick = onBackClick
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Back",
                 tint = Color.White,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(18.dp)
             )
         }
 
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(8.dp))
 
         // Video Title pill with truncation
         GlassSurface(
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(14.dp),
             transparencyAlpha = transparencyAlpha,
             modifier = Modifier
                 .weight(1f)
-                .height(44.dp)
+                .height(36.dp)
                 .padding(horizontal = 2.dp)
         ) {
             Text(
                 text = title,
                 color = Color.White,
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 12.dp)
+                modifier = Modifier.padding(horizontal = 10.dp)
             )
         }
 
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(8.dp))
 
         // Compact Apple Action Pod
         GlassSurface(
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(14.dp),
             transparencyAlpha = transparencyAlpha,
-            modifier = Modifier.height(44.dp)
+            modifier = Modifier.height(36.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 6.dp)
+                modifier = Modifier.padding(horizontal = 4.dp)
             ) {
                 // Aspect Ratio / Zoom indicator
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(8.dp))
                         .background(Color.White.copy(alpha = 0.15f))
                         .clickable(onClick = onCycleAspectRatio)
-                        .padding(horizontal = 8.dp, vertical = 5.dp),
+                        .padding(horizontal = 7.dp, vertical = 3.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = aspectRatioMode.label,
                         color = Color.White,
-                        fontSize = 11.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
 
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(2.dp))
 
                 // PiP
-                IconButton(onClick = onPipClick, modifier = Modifier.size(36.dp)) {
+                IconButton(onClick = onPipClick, modifier = Modifier.size(30.dp)) {
                     Icon(
                         imageVector = Icons.Default.PictureInPictureAlt,
                         contentDescription = "Picture in Picture",
                         tint = Color.White,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                 }
 
                 // More Options (Opens comprehensive bottom sheet)
-                IconButton(onClick = onMoreOptionsClick, modifier = Modifier.size(36.dp)) {
+                IconButton(onClick = onMoreOptionsClick, modifier = Modifier.size(30.dp)) {
                     Icon(
                         imageVector = Icons.Default.MoreVert,
                         contentDescription = "More Features",
                         tint = Color.White,
-                        modifier = Modifier.size(19.dp)
+                        modifier = Modifier.size(17.dp)
                     )
                 }
             }
@@ -204,27 +204,27 @@ fun PlayerStatusBanner(
     if (isFastForwarding) {
         Box(
             modifier = modifier
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xFFFF9500).copy(alpha = 0.88f))
-                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0xFFFF9500).copy(alpha = 0.90f))
+                .padding(horizontal = 14.dp, vertical = 5.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(imageVector = Icons.Default.FastForward, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(text = "2.0X SPEED PREVIEW", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Icon(imageVector = Icons.Default.FastForward, contentDescription = null, tint = Color.Black, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(5.dp))
+                Text(text = "2.0X SPEED PREVIEW", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
     } else if (isAbLoopActive && loopPointA != null && loopPointB != null) {
         Box(
             modifier = modifier
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xFF007AFF).copy(alpha = 0.85f))
-                .padding(horizontal = 14.dp, vertical = 6.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0xFF007AFF).copy(alpha = 0.88f))
+                .padding(horizontal = 12.dp, vertical = 5.dp)
         ) {
             Text(
                 text = "⟳ A-B Loop: ${formatTime(loopPointA)} - ${formatTime(loopPointB)}",
                 color = Color.White,
-                fontSize = 12.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold
             )
         }
@@ -234,7 +234,7 @@ fun PlayerStatusBanner(
 /**
  * Center Playback Controls:
  * Previous | Seek Backward (-20s) | Play/Pause | Seek Forward (+20s) | Next
- * Spacious, well-spaced, never overlapping.
+ * Sized with a sleek 25-30% scale reduction for comfortable ergonomics.
  */
 @Composable
 fun PlayerCenterControls(
@@ -251,20 +251,20 @@ fun PlayerCenterControls(
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         // Previous Video
         GlassSurface(
             shape = CircleShape,
             transparencyAlpha = transparencyAlpha,
-            modifier = Modifier.size(44.dp),
+            modifier = Modifier.size(36.dp),
             onClick = onPreviousClick
         ) {
             Icon(
                 imageVector = Icons.Default.SkipPrevious,
                 contentDescription = "Previous",
                 tint = Color.White,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(18.dp)
             )
         }
 
@@ -272,7 +272,7 @@ fun PlayerCenterControls(
         GlassSurface(
             shape = CircleShape,
             transparencyAlpha = transparencyAlpha,
-            modifier = Modifier.size(50.dp),
+            modifier = Modifier.size(40.dp),
             onClick = onSeekBackward
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -280,12 +280,12 @@ fun PlayerCenterControls(
                     imageVector = Icons.Default.Replay10,
                     contentDescription = "Seek -$skipSec sec",
                     tint = Color.White,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(19.dp)
                 )
                 Text(
                     text = "${skipSec}s",
-                    color = Color.White.copy(alpha = 0.8f),
-                    fontSize = 9.sp,
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 8.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -295,14 +295,14 @@ fun PlayerCenterControls(
         GlassSurface(
             shape = CircleShape,
             transparencyAlpha = (transparencyAlpha * 1.3f).coerceAtMost(0.96f),
-            modifier = Modifier.size(72.dp),
+            modifier = Modifier.size(56.dp),
             onClick = onPlayPauseClick
         ) {
             Icon(
                 imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                 contentDescription = if (isPlaying) "Pause" else "Play",
                 tint = Color.White,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(28.dp)
             )
         }
 
@@ -310,7 +310,7 @@ fun PlayerCenterControls(
         GlassSurface(
             shape = CircleShape,
             transparencyAlpha = transparencyAlpha,
-            modifier = Modifier.size(50.dp),
+            modifier = Modifier.size(40.dp),
             onClick = onSeekForward
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -318,12 +318,12 @@ fun PlayerCenterControls(
                     imageVector = Icons.Default.Forward10,
                     contentDescription = "Seek +$skipSec sec",
                     tint = Color.White,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(19.dp)
                 )
                 Text(
                     text = "${skipSec}s",
-                    color = Color.White.copy(alpha = 0.8f),
-                    fontSize = 9.sp,
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 8.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -333,14 +333,14 @@ fun PlayerCenterControls(
         GlassSurface(
             shape = CircleShape,
             transparencyAlpha = transparencyAlpha,
-            modifier = Modifier.size(44.dp),
+            modifier = Modifier.size(36.dp),
             onClick = onNextClick
         ) {
             Icon(
                 imageVector = Icons.Default.SkipNext,
                 contentDescription = "Next",
                 tint = Color.White,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(18.dp)
             )
         }
     }
@@ -372,17 +372,17 @@ fun PlayerBottomBar(
     val durationFloat = durationMs.coerceAtLeast(1L).toFloat()
 
     GlassSurface(
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(22.dp),
         transparencyAlpha = transparencyAlpha,
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 8.dp)
+                .padding(horizontal = 12.dp, vertical = 6.dp)
         ) {
             // Scrubber Bar
             Row(
@@ -392,7 +392,7 @@ fun PlayerBottomBar(
                 Text(
                     text = formatTime(effectivePosition),
                     color = Color.White,
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Medium
                 )
 
@@ -414,13 +414,13 @@ fun PlayerBottomBar(
                     ),
                     modifier = Modifier
                         .weight(1f)
-                        .padding(horizontal = 8.dp)
+                        .padding(horizontal = 6.dp)
                 )
 
                 Text(
                     text = formatTime(durationMs),
                     color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -432,32 +432,32 @@ fun PlayerBottomBar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Lock Button
-                IconButton(onClick = onToggleLock, modifier = Modifier.size(36.dp)) {
+                IconButton(onClick = onToggleLock, modifier = Modifier.size(30.dp)) {
                     Icon(
                         imageVector = if (isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
                         contentDescription = if (isLocked) "Unlock Controls" else "Lock Controls",
                         tint = if (isLocked) Color(0xFFFF9F0A) else Color.White,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                 }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     // Speed Pill
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(10.dp))
                             .background(Color.White.copy(alpha = 0.15f))
                             .clickable(onClick = onSpeedClick)
-                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = "${playbackSpeed}x",
                             color = Color.White,
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -465,50 +465,50 @@ fun PlayerBottomBar(
                     // Repeat Mode Pill
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(10.dp))
                             .background(if (repeatMode != RepeatMode.OFF) Color(0xFF007AFF).copy(alpha = 0.35f) else Color.White.copy(alpha = 0.15f))
                             .clickable(onClick = onRepeatClick)
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                            .padding(horizontal = 7.dp, vertical = 3.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = if (repeatMode == RepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
                             contentDescription = "Repeat",
                             tint = Color.White,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(15.dp)
                         )
                     }
 
                     // Bookmarks Pill
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(10.dp))
                             .background(Color.White.copy(alpha = 0.15f))
                             .clickable(onClick = onBookmarksClick)
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                            .padding(horizontal = 7.dp, vertical = 3.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Bookmark,
                             contentDescription = "Bookmarks",
                             tint = Color.White,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(15.dp)
                         )
                     }
 
                     // More Tools Button
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(10.dp))
                             .background(Color.White.copy(alpha = 0.15f))
                             .clickable(onClick = onMoreToolsClick)
-                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(imageVector = Icons.Default.Tune, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Tools", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                            Icon(imageVector = Icons.Default.Tune, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text("Tools", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                         }
                     }
                 }
@@ -519,6 +519,7 @@ fun PlayerBottomBar(
 
 /**
  * Vertical continuous gesture indicators for Volume and Brightness
+ * Features dynamic Audio Boost support (up to 200% / +20dB)
  */
 @Composable
 fun GestureLevelIndicator(
@@ -526,52 +527,68 @@ fun GestureLevelIndicator(
     levelFraction: Float,
     modifier: Modifier = Modifier
 ) {
+    val isBoost = isVolume && levelFraction > 1.0f
+    val displayPercent = (levelFraction * 100).toInt()
+    val boostGainDb = if (isBoost) String.format("+%.1fdB", (levelFraction - 1.0f) * 20f) else ""
+
     GlassSurface(
-        shape = RoundedCornerShape(20.dp),
-        transparencyAlpha = 0.85f,
+        shape = RoundedCornerShape(18.dp),
+        transparencyAlpha = 0.88f,
         modifier = modifier
-            .width(64.dp)
-            .height(180.dp)
+            .width(52.dp)
+            .height(152.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(12.dp),
+                .padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Icon(
                 imageVector = if (isVolume) Icons.Default.VolumeUp else Icons.Default.BrightnessMedium,
                 contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(24.dp)
+                tint = if (isBoost) Color(0xFFFF9F0A) else Color.White,
+                modifier = Modifier.size(20.dp)
             )
 
             // Vertical gauge bar
             Box(
                 modifier = Modifier
-                    .width(8.dp)
+                    .width(6.dp)
                     .weight(1f)
-                    .padding(vertical = 10.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color.White.copy(alpha = 0.25f)),
+                    .padding(vertical = 8.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(Color.White.copy(alpha = 0.22f)),
                 contentAlignment = Alignment.BottomCenter
             ) {
+                // Base volume/brightness track (0 - 100%)
+                val baseFraction = levelFraction.coerceIn(0f, 1f)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .fillMaxHeight(levelFraction.coerceIn(0f, 1f))
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color.White)
+                        .fillMaxHeight(baseFraction)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(if (isBoost) Color(0xFFFF9F0A) else Color.White)
                 )
             }
 
-            Text(
-                text = "${(levelFraction * 100).toInt()}%",
-                color = Color.White,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "$displayPercent%",
+                    color = if (isBoost) Color(0xFFFF9F0A) else Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                if (isBoost) {
+                    Text(
+                        text = "BOOST",
+                        color = Color(0xFFFF9F0A),
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
         }
     }
 }

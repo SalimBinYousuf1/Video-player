@@ -11,6 +11,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,6 +24,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
@@ -49,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.data.model.PlaylistEntity
 import com.example.data.model.VideoItemEntity
 import com.example.ui.theme.DarkSurfaceElevated
 import com.example.ui.theme.LightSurfaceElevated
@@ -91,6 +95,7 @@ fun VideoGridItem(
                 detectTapGestures(
                     onPress = {
                         val pressScope = this
+                        var longPressTriggered = false
                         scope.launch {
                             scaleAnim.animateTo(0.96f, spring(stiffness = Spring.StiffnessMediumLow))
                         }
@@ -98,6 +103,7 @@ fun VideoGridItem(
                         holdJob = scope.launch {
                             holdProgress.snapTo(0f)
                             holdProgress.animateTo(1f, tween(durationMillis = 2000, easing = LinearEasing))
+                            longPressTriggered = true
                             view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                             onLongPressThreshold()
                             scaleAnim.animateTo(1f, spring(dampingRatio = Spring.DampingRatioLowBouncy))
@@ -110,7 +116,7 @@ fun VideoGridItem(
                             scaleAnim.animateTo(1f, spring(dampingRatio = Spring.DampingRatioLowBouncy))
                             holdProgress.snapTo(0f)
                         }
-                        if (released && holdProgress.value < 0.95f) {
+                        if (released && !longPressTriggered) {
                             onClick()
                         }
                     }
@@ -210,13 +216,23 @@ fun VideoGridItem(
             overflow = TextOverflow.Ellipsis
         )
 
-        // Subtext: resolution and size
-        Text(
-            text = "${video.resolution} • ${video.formattedSize()}",
-            color = secondaryTextColor,
-            fontSize = 12.sp,
-            maxLines = 1
-        )
+        // Subtext: resolution and size or resume progress
+        if (video.isResumeAvailable) {
+            Text(
+                text = "Resume from ${video.formattedResumePosition()}",
+                color = Color(0xFF007AFF),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1
+            )
+        } else {
+            Text(
+                text = "${video.resolution} • ${video.formattedSize()}",
+                color = secondaryTextColor,
+                fontSize = 12.sp,
+                maxLines = 1
+            )
+        }
     }
 }
 
@@ -252,6 +268,7 @@ fun VideoListItem(
                 detectTapGestures(
                     onPress = {
                         val pressScope = this
+                        var longPressTriggered = false
                         scope.launch {
                             scaleAnim.animateTo(0.97f, spring(stiffness = Spring.StiffnessMediumLow))
                         }
@@ -259,6 +276,7 @@ fun VideoListItem(
                         holdJob = scope.launch {
                             holdProgress.snapTo(0f)
                             holdProgress.animateTo(1f, tween(durationMillis = 2000, easing = LinearEasing))
+                            longPressTriggered = true
                             view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                             onLongPressThreshold()
                             scaleAnim.animateTo(1f, spring(dampingRatio = Spring.DampingRatioLowBouncy))
@@ -271,7 +289,7 @@ fun VideoListItem(
                             scaleAnim.animateTo(1f, spring(dampingRatio = Spring.DampingRatioLowBouncy))
                             holdProgress.snapTo(0f)
                         }
-                        if (released && holdProgress.value < 0.95f) {
+                        if (released && !longPressTriggered) {
                             onClick()
                         }
                     }
@@ -366,11 +384,146 @@ fun VideoListItem(
             if (video.isResumeAvailable) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "Resume from ${video.formattedDuration()}",
+                    text = "Resume from ${video.formattedResumePosition()}",
                     color = Color(0xFF007AFF),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Modern tactile playlist row featuring smooth 2-second hold-to-CRUD gesture.
+ * Releasing before 2s navigates/opens the playlist, while reaching 2s triggers
+ * haptic feedback and launches the playlist CRUD management sheet without accidental click.
+ */
+@Composable
+fun PlaylistItemCard(
+    playlist: PlaylistEntity,
+    onClick: () -> Unit,
+    onLongPressThreshold: () -> Unit,
+    isLightMode: Boolean = false,
+    liquidGlassAlpha: Float = 0.70f,
+    modifier: Modifier = Modifier
+) {
+    val view = LocalView.current
+    val scope = rememberCoroutineScope()
+
+    val scaleAnim = remember { Animatable(1f) }
+    val holdProgress = remember { Animatable(0f) }
+    var holdJob by remember { mutableStateOf<Job?>(null) }
+
+    val primaryTextColor = if (isLightMode) TextPrimaryLight else TextPrimaryDark
+    val secondaryTextColor = if (isLightMode) TextSecondaryLight else TextSecondaryDark
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp)
+            .scale(scaleAnim.value)
+            .pointerInput(playlist.playlistId) {
+                detectTapGestures(
+                    onPress = {
+                        val pressScope = this
+                        var longPressTriggered = false
+                        scope.launch {
+                            scaleAnim.animateTo(0.97f, spring(stiffness = Spring.StiffnessMediumLow))
+                        }
+                        holdJob?.cancel()
+                        holdJob = scope.launch {
+                            holdProgress.snapTo(0f)
+                            holdProgress.animateTo(1f, tween(durationMillis = 2000, easing = LinearEasing))
+                            longPressTriggered = true
+                            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                            onLongPressThreshold()
+                            scaleAnim.animateTo(1f, spring(dampingRatio = Spring.DampingRatioLowBouncy))
+                            holdProgress.snapTo(0f)
+                        }
+
+                        val released = pressScope.tryAwaitRelease()
+                        holdJob?.cancel()
+                        scope.launch {
+                            scaleAnim.animateTo(1f, spring(dampingRatio = Spring.DampingRatioLowBouncy))
+                            holdProgress.snapTo(0f)
+                        }
+                        if (released && !longPressTriggered) {
+                            onClick()
+                        }
+                    }
+                )
+            }
+    ) {
+        GlassSurface(
+            shape = RoundedCornerShape(18.dp),
+            isLightMode = isLightMode,
+            transparencyAlpha = liquidGlassAlpha,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFF007AFF).copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            androidx.compose.material3.Icon(
+                                imageVector = Icons.Default.PlaylistPlay,
+                                contentDescription = null,
+                                tint = Color(0xFF007AFF),
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column {
+                            Text(
+                                text = playlist.name,
+                                color = primaryTextColor,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Local Playlist • Hold to manage",
+                                color = secondaryTextColor,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    if (holdProgress.value > 0f) {
+                        CircularProgressIndicator(
+                            progress = { holdProgress.value },
+                            modifier = Modifier.size(24.dp),
+                            color = Color(0xFF007AFF),
+                            strokeWidth = 2.dp
+                        )
+                    }
+                }
+
+                if (holdProgress.value > 0f) {
+                    LinearProgressIndicator(
+                        progress = { holdProgress.value },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(2.dp),
+                        color = Color(0xFF007AFF),
+                        trackColor = Color.Transparent
+                    )
+                }
             }
         }
     }

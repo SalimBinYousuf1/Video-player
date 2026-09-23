@@ -2,6 +2,7 @@ package com.example.playback
 
 import android.content.Context
 import android.media.AudioManager
+import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.media3.common.C
@@ -109,6 +110,7 @@ class SalimPlaybackManager(
     private var autoHideControlsJob: Job? = null
     private var indicatorHideJob: Job? = null
     private var speedBeforeHold: Float = 1.0f
+    private var loudnessEnhancer: LoudnessEnhancer? = null
 
     init {
         // Initialize current volume
@@ -119,6 +121,10 @@ class SalimPlaybackManager(
         )
 
         player.addListener(object : Player.Listener {
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                recreateLoudnessEnhancer(audioSessionId)
+            }
+
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _uiState.value = _uiState.value.copy(isPlaying = isPlaying)
                 if (isPlaying) {
@@ -520,21 +526,72 @@ class SalimPlaybackManager(
         }
     }
 
-    // Volume Adjustment
+    // Audio Boost DSP (LoudnessEnhancer) & Volume Management
+    private fun recreateLoudnessEnhancer(sessionId: Int = player.audioSessionId) {
+        try {
+            loudnessEnhancer?.release()
+            loudnessEnhancer = null
+            if (sessionId != C.AUDIO_SESSION_ID_UNSET && sessionId > 0) {
+                loudnessEnhancer = LoudnessEnhancer(sessionId)
+                applyAudioBoostGain()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun applyAudioBoostGain() {
+        try {
+            val enhancer = loudnessEnhancer ?: return
+            val level = _uiState.value.volumeLevel
+            if (level > 1.0f) {
+                val boostFraction = (level - 1.0f).coerceIn(0f, 1.0f)
+                val targetGainMb = (boostFraction * 2000).toInt() // up to +20dB (2000 mB)
+                enhancer.setTargetGain(targetGainMb)
+                enhancer.enabled = true
+            } else {
+                enhancer.setTargetGain(0)
+                enhancer.enabled = false
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    // Volume Adjustment up to 200% (2.0f) with Smooth Audio Boost
     fun adjustVolume(deltaFraction: Float) {
         val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-        val currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-        val currentFrac = if (maxVol > 0) currentVol.toFloat() / maxVol else 0f
-        val newFrac = (currentFrac + deltaFraction).coerceIn(0f, 1f)
-        val newTargetVol = (newFrac * maxVol).toInt()
-        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newTargetVol, 0)
+        val currentLevel = _uiState.value.volumeLevel
+        val newLevel = (currentLevel + deltaFraction).coerceIn(0f, 2.0f)
+
+        if (newLevel <= 1.0f) {
+            val newTargetVol = (newLevel * maxVol).toInt()
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newTargetVol, 0)
+        } else {
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxVol, 0)
+        }
 
         _uiState.value = _uiState.value.copy(
-            volumeLevel = newFrac,
+            volumeLevel = newLevel,
+            audioBoostMultiplier = if (newLevel > 1.0f) newLevel else 1.0f,
             showVolumeIndicator = true,
             showBrightnessIndicator = false
         )
+        applyAudioBoostGain()
         scheduleHideIndicators()
+    }
+
+    // Picture-in-Picture mode management: clear overlays immediately
+    fun setInPipMode(inPip: Boolean) {
+        if (inPip) {
+            _uiState.value = _uiState.value.copy(
+                isControlsVisible = false,
+                showVolumeIndicator = false,
+                showBrightnessIndicator = false
+            )
+            autoHideControlsJob?.cancel()
+            indicatorHideJob?.cancel()
+        }
     }
 
     // Brightness Adjustment
@@ -738,6 +795,12 @@ class SalimPlaybackManager(
         autoHideControlsJob?.cancel()
         indicatorHideJob?.cancel()
         saveCurrentProgress()
+        try {
+            loudnessEnhancer?.release()
+            loudnessEnhancer = null
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         player.release()
     }
 }

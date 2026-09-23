@@ -98,7 +98,12 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val settings by settingsRepository.userSettingsFlow.collectAsState(initial = UserSettings())
 
-    val isLightMode = settings.themeMode == "light"
+    val systemInDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val isLightMode = when (settings.themeMode) {
+        "light" -> true
+        "dark" -> false
+        else -> !systemInDark
+    }
     val primaryTextColor = if (isLightMode) TextPrimaryLight else TextPrimaryDark
     val secondaryTextColor = if (isLightMode) TextSecondaryLight else TextSecondaryDark
     val dividerColor = if (isLightMode) Color(0x1A000000) else Color(0x1AFFFFFF)
@@ -319,34 +324,44 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     // Double-Tap Skip Duration
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(imageVector = Icons.Default.FastForward, contentDescription = null, tint = primaryTextColor, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(text = "Double-Tap Seek", color = primaryTextColor, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(imageVector = Icons.Default.FastForward, contentDescription = null, tint = primaryTextColor, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(text = "Double-Tap Seek", color = primaryTextColor, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            }
+                            Text(text = "${settings.defaultSkipDurationSec}s", color = Color(0xFF007AFF), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
 
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             listOf(5, 10, 15, 20, 30).forEach { sec ->
                                 val isSelected = settings.defaultSkipDurationSec == sec
                                 Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(10.dp))
                                         .background(
                                             if (isSelected) Color(0xFF007AFF) else if (isLightMode) Color(0x14000000) else Color(0x22FFFFFF)
                                         )
                                         .clickable { scope.launch { settingsRepository.setDefaultSkipDuration(sec) } }
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        .padding(vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = "${sec}s",
                                         color = if (isSelected) Color.White else primaryTextColor,
                                         fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                     )
                                 }
                             }
@@ -382,34 +397,57 @@ fun SettingsScreen(
                     HorizontalDivider(color = dividerColor, modifier = Modifier.padding(vertical = 12.dp))
 
                     // Screen Orientation Lock
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(imageVector = Icons.Default.ScreenRotation, contentDescription = null, tint = primaryTextColor, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(text = "Orientation", color = primaryTextColor, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(imageVector = Icons.Default.ScreenRotation, contentDescription = null, tint = primaryTextColor, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(text = "Orientation Lock", color = primaryTextColor, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            }
+                            Text(
+                                text = when (settings.screenOrientationLock) {
+                                    "landscape" -> "Landscape"
+                                    "portrait" -> "Portrait"
+                                    else -> "Auto"
+                                },
+                                color = Color(0xFF007AFF),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
 
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(Pair("sensor", "Auto"), Pair("landscape", "Landscape"), Pair("portrait", "Portrait")).forEach { (key, name) ->
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(
+                                Pair("sensor", "Auto"),
+                                Pair("landscape", "Landscape"),
+                                Pair("portrait", "Portrait")
+                            ).forEach { (key, name) ->
                                 val isSelected = settings.screenOrientationLock == key
                                 Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(10.dp))
                                         .background(
                                             if (isSelected) Color(0xFF007AFF) else if (isLightMode) Color(0x14000000) else Color(0x22FFFFFF)
                                         )
                                         .clickable { scope.launch { settingsRepository.setScreenOrientationLock(key) } }
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        .padding(vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = name,
                                         color = if (isSelected) Color.White else primaryTextColor,
                                         fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                     )
                                 }
                             }
